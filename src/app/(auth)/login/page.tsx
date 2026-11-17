@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 
@@ -14,7 +15,10 @@ export default function EntrarPage() {
       footer={
         <>
           Ainda não tem conta?{" "}
-          <Link href="/cadastro" className="font-semibold underline">
+          <Link
+            href="/signup"
+            className={buttonVariants({ variant: "link", size: "xs" })}
+          >
             Criar conta
           </Link>
         </>

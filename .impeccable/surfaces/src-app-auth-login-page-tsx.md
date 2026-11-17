@@ -1,13 +1,13 @@
 ---
 version: 1
-slug: "src-app-auth-entrar-page-tsx"
-primary_target: "src/app/(auth)/entrar/page.tsx"
-related_targets: ["src/app/admin/entrar/page.tsx"]
+slug: "src-app-auth-login-page-tsx"
+primary_target: "src/app/(auth)/login/page.tsx"
+related_targets: ["src/app/admin/login/page.tsx"]
 ---
 
 # Login (organizadores) e login administrativo
 
-Scope: two routes, `/entrar` (organizers and other users) and `/admin/entrar` (system admin). Mode: Operate.
+Scope: two routes, `/login` (organizers and other users) and `/admin/login` (system admin). Mode: Operate.
 Task: sign in with e-mail and password. Organizer route also offers "criar conta" and "esqueci a senha". Admin route has no sign-up and no public link.
 Constraints: brand tokens only (PRODUCT.md); no invented claims; auth backend not connected yet, so submit returns an honest "not connected" error after validation.
 Unresolved: sign-up and password-recovery routes do not exist yet; semantic (error/success) colors not defined by the brand manual.

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
 
@@ -17,7 +18,10 @@ export default function AdminEntrarPage() {
       footer={
         <>
           Organiza competições?{" "}
-          <Link href="/entrar" className="font-semibold underline">
+          <Link
+            href="/login"
+            className={buttonVariants({ variant: "link", size: "xs" })}
+          >
             Entrar como organizador
           </Link>
         </>

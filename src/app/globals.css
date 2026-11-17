@@ -4,7 +4,7 @@
 /*
  ---break---
  */
-@custom-variant dark (&:is(.theme-admin, .theme-admin *));
+@custom-variant dark (&:is(.dark *));
 
 /*
  * Liggo brand tokens — source: Manual de Identidade Visual v1.0 (see PRODUCT.md).
@@ -42,7 +42,7 @@
   /* Input borders need 3:1 against the field: ink at 55% on white. */
   --input: color-mix(in oklab, var(--liggo-ink) 55%, white);
   --ring: var(--liggo-primary);
-  --radius: 0.375rem;
+  --radius: 0.625rem;
 
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -72,34 +72,6 @@
 /* Organizer login: always light, regardless of the system scheme. */
 .theme-light {
   color-scheme: light;
-}
-
-/* Administrative area: always dark, regardless of the system scheme. */
-.theme-admin {
-  --background: var(--liggo-ink);
-  --foreground: var(--liggo-white);
-  --card: var(--liggo-navy);
-  --card-foreground: var(--liggo-white);
-  --popover: var(--liggo-navy);
-  --popover-foreground: var(--liggo-white);
-  --secondary: color-mix(in oklab, white 10%, var(--liggo-ink));
-  --secondary-foreground: var(--liggo-white);
-  --muted: color-mix(in oklab, white 10%, var(--liggo-ink));
-  --muted-foreground: color-mix(in oklab, white 70%, var(--liggo-ink));
-  --accent: color-mix(in oklab, white 12%, var(--liggo-ink));
-  --accent-foreground: var(--liggo-white);
-  /* Lighter red so error text keeps contrast on the dark ground. */
-  --destructive: oklch(0.75 0.17 25);
-  --border: color-mix(in oklab, white 18%, var(--liggo-ink));
-  --input: color-mix(in oklab, white 50%, var(--liggo-ink));
-  --ring: var(--liggo-accent);
-
-  --surface: var(--liggo-ink);
-  --primary-hover: var(--liggo-deep-blue);
-  --link: var(--liggo-white);
-  --focus-ring: var(--liggo-accent);
-
-  color-scheme: dark;
 }
 
 /* One authored moment: the winning path draws itself once on load. */
@@ -212,9 +184,13 @@ body {
   color: var(--liggo-ink);
 }
 
-:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
+/* Fallback focus ring for plain elements. In the base layer so components
+   that draw their own ring (shadcn) can switch it off with outline-none. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
 }
 
 a {

@@ -14,7 +14,9 @@ npm run db:seed
 npm run dev
 ```
 
-- Login de organizadores: `/entrar`
-- Login administrativo: `/admin/entrar`
+- Login de organizadores: `/login`
+- Login administrativo: `/admin/login`
+- Cadastro de organização: `/signup`
+- Recuperação de senha: `/forgot-password`
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).
