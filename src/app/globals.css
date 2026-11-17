@@ -1,26 +1,241 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/*
+ ---break---
+ */
+@custom-variant dark (&:is(.theme-admin, .theme-admin *));
 
+/*
+ * Liggo brand tokens — source: Manual de Identidade Visual v1.0 (see PRODUCT.md).
+ * Raw palette first; the shadcn semantic tokens below are mapped onto it.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand palette */
+  --liggo-primary: #187cfa;
+  --liggo-accent: #1ce6d3;
+  --liggo-navy: #041b4b;
+  --liggo-deep-blue: #0b2e78;
+  --liggo-ink: #091225;
+  --liggo-white: #ffffff;
+  --liggo-bg-light: #f7fafc;
+
+  --liggo-brand-gradient: linear-gradient(90deg, #187cfa 0%, #1ce6d3 100%);
+
+  /* shadcn semantic tokens (light) */
+  --background: var(--liggo-bg-light);
+  --foreground: var(--liggo-ink);
+  --card: var(--liggo-white);
+  --card-foreground: var(--liggo-ink);
+  --popover: var(--liggo-white);
+  --popover-foreground: var(--liggo-ink);
+  --primary: var(--liggo-primary);
+  --primary-foreground: var(--liggo-white);
+  --secondary: color-mix(in oklab, var(--liggo-ink) 6%, white);
+  --secondary-foreground: var(--liggo-ink);
+  --muted: color-mix(in oklab, var(--liggo-ink) 6%, white);
+  --muted-foreground: color-mix(in oklab, var(--liggo-ink) 70%, white);
+  --accent: color-mix(in oklab, var(--liggo-primary) 10%, white);
+  --accent-foreground: var(--liggo-ink);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: color-mix(in oklab, var(--liggo-ink) 18%, white);
+  /* Input borders need 3:1 against the field: ink at 55% on white. */
+  --input: color-mix(in oklab, var(--liggo-ink) 55%, white);
+  --ring: var(--liggo-primary);
+  --radius: 0.375rem;
+
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Project tokens beyond shadcn */
+  --surface: var(--liggo-white);
+  --primary-hover: var(--liggo-deep-blue);
+  /* Links: electric blue is 3.78:1 on the light background, so link text
+     uses the deep blue (about 12:1). */
+  --link: var(--liggo-deep-blue);
+  --focus-ring: var(--liggo-primary);
+
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Organizer login: always light, regardless of the system scheme. */
+.theme-light {
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Administrative area: always dark, regardless of the system scheme. */
+.theme-admin {
+  --background: var(--liggo-ink);
+  --foreground: var(--liggo-white);
+  --card: var(--liggo-navy);
+  --card-foreground: var(--liggo-white);
+  --popover: var(--liggo-navy);
+  --popover-foreground: var(--liggo-white);
+  --secondary: color-mix(in oklab, white 10%, var(--liggo-ink));
+  --secondary-foreground: var(--liggo-white);
+  --muted: color-mix(in oklab, white 10%, var(--liggo-ink));
+  --muted-foreground: color-mix(in oklab, white 70%, var(--liggo-ink));
+  --accent: color-mix(in oklab, white 12%, var(--liggo-ink));
+  --accent-foreground: var(--liggo-white);
+  /* Lighter red so error text keeps contrast on the dark ground. */
+  --destructive: oklch(0.75 0.17 25);
+  --border: color-mix(in oklab, white 18%, var(--liggo-ink));
+  --input: color-mix(in oklab, white 50%, var(--liggo-ink));
+  --ring: var(--liggo-accent);
+
+  --surface: var(--liggo-ink);
+  --primary-hover: var(--liggo-deep-blue);
+  --link: var(--liggo-white);
+  --focus-ring: var(--liggo-accent);
+
+  color-scheme: dark;
+}
+
+/* One authored moment: the winning path draws itself once on load. */
+@keyframes bracket-draw {
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
+@keyframes bracket-pop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.bracket-lit {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: bracket-draw 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+}
+
+.bracket-champion {
+  opacity: 0;
+  animation: bracket-pop 0.3s ease-out 1.4s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bracket-lit {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .bracket-champion {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@theme inline {
+  /* Raw brand colors: bg-liggo-primary, text-liggo-ink, ... */
+  --color-liggo-primary: var(--liggo-primary);
+  --color-liggo-accent: var(--liggo-accent);
+  --color-liggo-navy: var(--liggo-navy);
+  --color-liggo-deep-blue: var(--liggo-deep-blue);
+  --color-liggo-ink: var(--liggo-ink);
+  --color-liggo-bg-light: var(--liggo-bg-light);
+
+  /* Semantic colors: bg-background, text-foreground, bg-surface, ... */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-primary-hover: var(--primary-hover);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-link: var(--link);
+
+  --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-barlow-condensed), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@utility bg-brand-gradient {
+  background-image: var(--liggo-brand-gradient);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Browser surfaces themed from the palette */
+::selection {
+  background: var(--liggo-accent);
+  color: var(--liggo-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--link);
+  text-underline-offset: 0.2em;
+}
+
+html {
+  scrollbar-color: var(--liggo-primary) transparent;
+}
+/*
+ ---break---
+ */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

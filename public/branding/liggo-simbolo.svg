@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Liggo"><defs><linearGradient id="liggoBlue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#187CFA"/><stop offset="0.55" stop-color="#0AB8F1"/><stop offset="1" stop-color="#1CE6D3"/></linearGradient><linearGradient id="liggoCyan" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#187CFA"/><stop offset="1" stop-color="#1CE6D3"/></linearGradient><linearGradient id="liggoTile" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#041B4B"/><stop offset="0.6" stop-color="#0B2E78"/><stop offset="1" stop-color="#07575E"/></linearGradient></defs><g>
+<!-- Competition bracket paths -->
+<path d="M196 147 H304 Q318 147 318 161 V192 H338 Q349 192 349 203 V247 H379" fill="none" stroke="url(#liggoCyan)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M196 254 H291 Q305 254 305 268 V285 H338 Q349 285 349 274 V247" fill="none" stroke="url(#liggoCyan)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M196 360 H303 Q318 360 318 345 V322 H338 Q349 322 349 311 V274" fill="none" stroke="url(#liggoCyan)" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- Trophy -->
+<path d="M388 213 H451 V238 C451 259 440 273 421 278 V288 H439 V300 H401 V288 H414 V278 C394 273 388 259 388 238 Z" fill="#1CE6D3"/>
+<path d="M388 224 H375 V237 C375 250 383 256 396 258 M451 224 H464 V237 C464 250 456 256 443 258" fill="none" stroke="#1CE6D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- Bold L ribbon -->
+<path d="M142 82 Q158 65 190 65 H228 Q237 65 233 76 L168 289 Q164 307 176 307 H321 Q344 307 359 323 L373 340 Q383 352 369 367 Q352 389 321 389 H114 Q81 389 69 370 Q59 354 68 329 L131 114 Q136 96 142 82 Z" fill="url(#liggoBlue)"/>
+<path d="M69 329 Q65 350 89 368 L111 387 L170 307 Q163 302 168 289 Z" fill="#0862D8" opacity=".88"/>
+</g></svg>

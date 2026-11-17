@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: liggo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: liggo
+      POSTGRES_PASSWORD: liggo
+      POSTGRES_DB: liggo
+    ports:
+      - "5432:5432"
+    volumes:
+      - liggo-pgdata:/var/lib/postgresql/data
+
+volumes:
+  liggo-pgdata:
