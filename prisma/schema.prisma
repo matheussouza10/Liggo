@@ -20,7 +20,8 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users  User[]
+  events Event[]
 
   @@map("organizations")
 }
@@ -35,8 +36,9 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  sessions     Session[]
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sessions      Session[]
+  createdEvents Event[]
 
   @@index([organizationId])
   @@map("users")
@@ -54,4 +56,143 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+enum ParticipationType {
+  INDIVIDUAL
+  PAIR
+  TEAM
+}
+
+model SportCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String   @unique
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items Sport[]
+
+  @@map("sport_categories")
+}
+
+model Sport {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  name       String
+  categoryId String
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category SportCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  events   Event[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+  @@map("sports")
+}
+
+model EventTypeCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String   @unique
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items EventType[]
+
+  @@map("event_type_categories")
+}
+
+model EventType {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  categoryId  String
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category EventTypeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  events   Event[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+  @@map("event_types")
+}
+
+model FormatCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String   @unique
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items CompetitionFormat[]
+
+  @@map("format_categories")
+}
+
+model CompetitionFormat {
+  id                 String              @id @default(cuid())
+  slug               String              @unique
+  name               String
+  description        String?
+  categoryId         String
+  // Participation types this format supports. Empty means any.
+  participationTypes ParticipationType[]
+  allowsGroups       Boolean             @default(false)
+  allowsRepechage    Boolean             @default(false)
+  sortOrder          Int                 @default(0)
+  active             Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  category FormatCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  events   Event[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
+  @@map("competition_formats")
+}
+
+model Event {
+  id                String            @id @default(cuid())
+  organizationId    String
+  createdById       String
+  name              String
+  description       String?
+  startDate         DateTime          @db.Date
+  endDate           DateTime          @db.Date
+  eventTypeId       String
+  formatId          String
+  sportId           String
+  participationType ParticipationType
+  locationName      String
+  city              String?
+  state             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  eventType    EventType         @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  format       CompetitionFormat @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  sport        Sport             @relation(fields: [sportId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, startDate])
+  @@index([eventTypeId])
+  @@index([formatId])
+  @@index([sportId])
+  @@map("events")
 }

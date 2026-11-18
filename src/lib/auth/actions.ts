@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { slugify } from "@/lib/slug";
 import { hashPassword, verifyPassword } from "./password";
 import { createSession, destroySession } from "./session";
 
@@ -17,18 +18,6 @@ function isUniqueViolation(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   );
-}
-
-function slugify(value: string): string {
-  const slug = value
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48)
-    .replace(/-+$/g, "");
-  return slug || "organization";
 }
 
 async function uniqueSlug(base: string): Promise<string> {
@@ -163,7 +152,7 @@ export async function signUpAction(
   if (existing) return emailTaken;
 
   const passwordHash = await hashPassword(password);
-  const baseSlug = slugify(organization);
+  const baseSlug = slugify(organization) || "organization";
 
   let userId: string | null = null;
   for (let attempt = 0; attempt < 2 && !userId; attempt++) {

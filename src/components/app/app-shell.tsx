@@ -104,7 +104,7 @@ export function AppShell({ area, user, children }: Props) {
       ? pathname === item.href
       : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-  const allItems = [...nav.main, ...nav.workspace];
+  const allItems = nav.sections.flatMap((section) => section.items);
   const pageTitle = allItems.find(isActive)?.label ?? "Painel de controle";
 
   const signOut = () =>
@@ -221,19 +221,14 @@ export function AppShell({ area, user, children }: Props) {
           />
         </button>
 
-        {sectionLabel("Menu principal")}
-        <nav aria-label="Menu principal" className="flex flex-col gap-1">
-          {nav.main.map((item) => renderLink(item))}
-        </nav>
-
-        {nav.workspace.length > 0 ? (
-          <>
-            {sectionLabel("Workspace", "mt-7")}
-            <nav aria-label="Workspace" className="flex flex-col gap-1">
-              {nav.workspace.map((item) => renderLink(item, true))}
+        {nav.sections.map((section, index) => (
+          <div key={section.label} className={index > 0 ? "mt-7" : undefined}>
+            {sectionLabel(section.label)}
+            <nav aria-label={section.label} className="flex flex-col gap-1">
+              {section.items.map((item) => renderLink(item, section.muted))}
             </nav>
-          </>
-        ) : null}
+          </div>
+        ))}
 
         {area === "organizer" ? (
           <div

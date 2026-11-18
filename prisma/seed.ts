@@ -2,13 +2,14 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
+import { seedCatalogs } from "./seed-catalogs";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
 // The system admin comes from the environment, never from source code.
-async function main() {
+async function seedAdmin() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
 
@@ -32,6 +33,12 @@ async function main() {
     },
   });
   console.log(`System admin ready: ${email}`);
+}
+
+async function main() {
+  await seedCatalogs(prisma);
+  console.log("Catalogs ready (sports, event types, competition formats).");
+  await seedAdmin();
 }
 
 main()
