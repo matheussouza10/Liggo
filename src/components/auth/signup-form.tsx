@@ -39,6 +39,8 @@ export function SignUpForm() {
     initialState,
   );
   const [showPassword, setShowPassword] = useState(false);
+  // Controlled so the form reset React runs after each submission keeps it.
+  const [termsChecked, setTermsChecked] = useState(false);
   const id = useId();
   const errors = state.fieldErrors;
 
@@ -203,6 +205,8 @@ export function SignUpForm() {
           <Checkbox
             id={ids.terms}
             name="terms"
+            checked={termsChecked}
+            onCheckedChange={setTermsChecked}
             aria-invalid={errors?.terms ? true : undefined}
             aria-describedby={errors?.terms ? `${ids.terms}-error` : undefined}
           />

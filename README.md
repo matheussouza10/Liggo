@@ -9,14 +9,17 @@ SaaS para criar e gerenciar campeonatos, torneios, ligas e partidas de várias m
 ```bash
 npm install
 cp .env.example .env        # ajuste DATABASE_URL para o seu Postgres
-npm run db:migrate -- --name init
-npm run db:seed
+npm run db:migrate
+npm run db:seed             # cria o administrador do sistema (ver abaixo)
 npm run dev
 ```
 
-- Login de organizadores: `/login`
-- Login administrativo: `/admin/login`
+O administrador do sistema vem do `.env`: defina `ADMIN_EMAIL` e `ADMIN_PASSWORD`
+antes de rodar `npm run db:seed`. Sem essas variáveis o seed não cria ninguém.
+
+- Login de organizadores: `/login` (depois do login: `/dashboard`)
+- Login administrativo: `/admin/login` (depois do login: `/admin`)
 - Cadastro de organização: `/signup`
-- Recuperação de senha: `/forgot-password`
+- Recuperação de senha: `/forgot-password` (tela pronta, envio de e-mail ainda não implementado)
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).
