@@ -20,8 +20,11 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users  User[]
-  events Event[]
+  users    User[]
+  events   Event[]
+  athletes OrganizationAthlete[]
+  teams    Team[]
+  referees Referee[]
 
   @@map("organizations")
 }
@@ -36,9 +39,10 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   sessions      Session[]
   createdEvents Event[]
+  registrations Registration[]
 
   @@index([organizationId])
   @@map("users")
@@ -88,8 +92,10 @@ model Sport {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  category SportCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  events   Event[]
+  category  SportCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  events    Event[]
+  referees  RefereeSport[]
+  positions SportPosition[]
 
   @@unique([categoryId, name])
   @@index([categoryId])
@@ -181,18 +187,352 @@ model Event {
   locationName      String
   city              String?
   state             String?
+  // Set when the first match is played; rules cannot change after that.
+  rulesLockedAt     DateTime?
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy    User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  eventType    EventType         @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
-  format       CompetitionFormat @relation(fields: [formatId], references: [id], onDelete: Restrict)
-  sport        Sport             @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy     User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  eventType     EventType         @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  format        CompetitionFormat @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  sport         Sport             @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  rules         EventRules?
+  stages        EventStage[]
+  categories    EventCategory[]
+  registrations Registration[]
 
   @@index([organizationId, startDate])
   @@index([eventTypeId])
   @@index([formatId])
   @@index([sportId])
   @@map("events")
+}
+
+enum ScoringModel {
+  SETS
+  POINTS
+  PERFORMANCE
+}
+
+enum MatchFormat {
+  SINGLE
+  BEST_OF
+  HOME_AWAY
+}
+
+enum StageType {
+  ROUND_ROBIN
+  GROUPS
+  SINGLE_ELIM
+  DOUBLE_ELIM
+  SWISS
+  PERFORMANCE
+}
+
+enum SeedingMode {
+  MANUAL
+  RANDOM
+  RANKING
+  SNAKE
+}
+
+enum GrandFinalMode {
+  NONE
+  SINGLE
+  RESET
+}
+
+/// How the competition works. One row per event, created from a preset and
+/// then edited by the organizer. Lists with a variable shape are JSON,
+/// validated with zod (see src/lib/rules/schema.ts) and versioned.
+model EventRules {
+  id                 String       @id @default(cuid())
+  eventId            String       @unique
+  presetKey          String?
+  schemaVersion      Int          @default(1)
+  scoringModel       ScoringModel
+  // Table points per result.
+  winPoints          Float        @default(3)
+  drawPoints         Float        @default(1)
+  lossPoints         Float        @default(0)
+  allowDraw          Boolean      @default(true)
+  // Score-dependent points (volleyball, rugby); replaces the three above when set.
+  pointsTable        Json?
+  // Ordered list of { key, scope } criteria.
+  tiebreakers        Json
+  // Walkover / forfeit.
+  woScoreFor         Int          @default(3)
+  woScoreAgainst     Int          @default(0)
+  woPointsAwarded    Float        @default(3)
+  woPointsPenalty    Float        @default(0)
+  woEliminationLimit Int?
+  woNullifyResults   Boolean      @default(false)
+  // Matches.
+  matchFormat        MatchFormat  @default(SINGLE)
+  bestOf             Int?
+  extraTime          Boolean      @default(false)
+  penalties          Boolean      @default(false)
+  awayGoals          Boolean      @default(false)
+  // Sport-specific block (sets, performance) and circuit ranking.
+  sportConfig        Json?
+  placePoints        Json?
+  dropWorst          Int?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_rules")
+}
+
+/// An ordered phase of the event (for example groups, then knockout).
+model EventStage {
+  id                String         @id @default(cuid())
+  eventId           String
+  order             Int
+  name              String
+  type              StageType
+  groupCount        Int?
+  groupSize         Int?
+  advancingPerGroup Int?
+  roundRobinLegs    Int            @default(1)
+  swissRounds       Int?
+  thirdPlaceMatch   Boolean        @default(false)
+  grandFinalMode    GrandFinalMode @default(NONE)
+  seeding           SeedingMode    @default(MANUAL)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, order])
+  @@map("event_stages")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum RefereeRole {
+  REFEREE
+  JUDGE
+  ASSISTANT
+  TABLE_OFFICIAL
+}
+
+/// A person who competes. GLOBAL: not owned by any organization, so the same
+/// athlete can take part in events of several organizations. The CPF (digits
+/// only) is the identity; minors may have none and then need a guardian.
+model Athlete {
+  id                      String   @id @default(cuid())
+  cpf                     String?  @unique
+  name                    String
+  birthDate               DateTime @db.Date
+  gender                  Gender
+  email                   String?
+  phone                   String?
+  guardianName            String?
+  guardianCpf             String?
+  // The organization that registered the athlete; only it may edit the data.
+  createdByOrganizationId String?
+  // Set when the athlete claims the record with their own account (future).
+  userId                  String?  @unique
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  organizations OrganizationAthlete[]
+  registrations RegistrationMember[]
+
+  @@index([createdByOrganizationId])
+  @@map("athletes")
+}
+
+/// Which athletes an organization knows. An organization only ever sees the
+/// athletes linked here.
+model OrganizationAthlete {
+  organizationId String
+  athleteId      String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  athlete      Athlete      @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, athleteId])
+  @@index([athleteId])
+  @@map("organization_athletes")
+}
+
+/// A team of one organization. It has no fixed roster: the roster is chosen
+/// when the team is registered in an event.
+model Team {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  shortName      String?
+  city           String?
+  state          String?
+  color          String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  registrations Registration[]
+
+  @@unique([organizationId, name])
+  @@map("teams")
+}
+
+/// Referees, judges and officials of an organization (separate from athletes).
+model Referee {
+  id             String      @id @default(cuid())
+  organizationId String
+  name           String
+  role           RefereeRole
+  cpf            String?
+  email          String?
+  phone          String?
+  licenseNumber  String?
+  licenseEntity  String?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sports       RefereeSport[]
+
+  @@index([organizationId])
+  @@map("referees")
+}
+
+model RefereeSport {
+  refereeId String
+  sportId   String
+
+  referee Referee @relation(fields: [refereeId], references: [id], onDelete: Cascade)
+  sport   Sport   @relation(fields: [sportId], references: [id], onDelete: Restrict)
+
+  @@id([refereeId, sportId])
+  @@index([sportId])
+  @@map("referee_sports")
+}
+
+enum CategoryGender {
+  MALE
+  FEMALE
+  MIXED
+}
+
+enum StaffRole {
+  COACH
+  ASSISTANT
+  MANAGER
+  PHYSIO
+  OTHER
+}
+
+/// A playing position of a sport (goalkeeper, setter...), managed by the admin.
+model SportPosition {
+  id           String   @id @default(cuid())
+  sportId      String
+  name         String
+  abbreviation String?
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sport   Sport                @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  members RegistrationMember[]
+
+  @@unique([sportId, name])
+  @@map("sport_positions")
+}
+
+/// A division of one event (for example "Sub-15 Masculino"). Age limits are
+/// evaluated on the event's start date.
+model EventCategory {
+  id        String         @id @default(cuid())
+  eventId   String
+  name      String
+  gender    CategoryGender @default(MIXED)
+  minAge    Int?
+  maxAge    Int?
+  rosterMin Int            @default(1)
+  rosterMax Int?
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  event         Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations Registration[]
+  members       RegistrationMember[]
+
+  @@unique([eventId, name])
+  @@index([eventId])
+  @@map("event_categories")
+}
+
+/// A participant entry of an event: one athlete, a pair, or a team with the
+/// roster chosen for THIS event.
+model Registration {
+  id          String   @id @default(cuid())
+  eventId     String
+  categoryId  String
+  teamId      String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event     Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  category  EventCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  team      Team?                @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  createdBy User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  members   RegistrationMember[]
+  staff     RegistrationStaff[]
+
+  // A team enters a category once (several null teams are allowed).
+  @@unique([categoryId, teamId])
+  @@index([eventId])
+  @@map("registrations")
+}
+
+model RegistrationMember {
+  id             String   @id @default(cuid())
+  registrationId String
+  athleteId      String
+  // Denormalized so the database can enforce one entry per athlete and category.
+  categoryId     String
+  shirtNumber    Int?
+  positionId     String?
+  isCaptain      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  registration Registration   @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  athlete      Athlete        @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  category     EventCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  position     SportPosition? @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  @@unique([registrationId, athleteId])
+  @@unique([categoryId, athleteId])
+  @@unique([registrationId, shirtNumber])
+  @@map("registration_members")
+}
+
+/// Coaching staff of one registration (not a global registry).
+model RegistrationStaff {
+  id             String    @id @default(cuid())
+  registrationId String
+  name           String
+  role           StaffRole
+  contact        String?
+  createdAt      DateTime  @default(now())
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("registration_staff")
 }

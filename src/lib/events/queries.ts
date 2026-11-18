@@ -18,5 +18,8 @@ export function listEvents(organizationId: string) {
 }
 
 export function getEvent(organizationId: string, id: string) {
-  return prisma.event.findFirst({ where: { id, organizationId }, include });
+  return prisma.event.findFirst({
+    where: { id, organizationId },
+    include: { ...include, rules: true, stages: { orderBy: { order: "asc" } } },
+  });
 }

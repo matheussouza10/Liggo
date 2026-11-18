@@ -145,3 +145,64 @@ export async function seedCatalogs(prisma: PrismaClient) {
     });
   }
 }
+
+// Common playing positions (general knowledge, editable in the admin).
+const POSITIONS: Record<string, [name: string, abbreviation: string][]> = {
+  Futebol: [
+    ["Goleiro", "GOL"],
+    ["Zagueiro", "ZAG"],
+    ["Lateral", "LAT"],
+    ["Volante", "VOL"],
+    ["Meio-campista", "MEI"],
+    ["Atacante", "ATA"],
+  ],
+  Futsal: [
+    ["Goleiro", "GOL"],
+    ["Fixo", "FIX"],
+    ["Ala", "ALA"],
+    ["Pivô", "PIV"],
+  ],
+  "Futebol Society": [
+    ["Goleiro", "GOL"],
+    ["Zagueiro", "ZAG"],
+    ["Meia", "MEI"],
+    ["Atacante", "ATA"],
+  ],
+  Basquete: [
+    ["Armador", "ARM"],
+    ["Ala-armador", "AAR"],
+    ["Ala", "ALA"],
+    ["Ala-pivô", "APV"],
+    ["Pivô", "PIV"],
+  ],
+  Vôlei: [
+    ["Levantador", "LEV"],
+    ["Ponteiro", "PON"],
+    ["Central", "CEN"],
+    ["Oposto", "OPO"],
+    ["Líbero", "LIB"],
+  ],
+  Handebol: [
+    ["Goleiro", "GOL"],
+    ["Armador central", "ARC"],
+    ["Armador", "ARM"],
+    ["Ponta", "PON"],
+    ["Pivô", "PIV"],
+  ],
+};
+
+export async function seedPositions(prisma: PrismaClient) {
+  const sports = await prisma.sport.findMany({
+    where: { name: { in: Object.keys(POSITIONS) } },
+    select: { id: true, name: true },
+  });
+  const data = sports.flatMap((sport) =>
+    POSITIONS[sport.name].map(([name, abbreviation], index) => ({
+      sportId: sport.id,
+      name,
+      abbreviation,
+      sortOrder: index,
+    })),
+  );
+  await prisma.sportPosition.createMany({ data, skipDuplicates: true });
+}

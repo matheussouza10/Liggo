@@ -74,7 +74,7 @@ export default async function EventsPage() {
           </Link>
         </Empty>
       ) : (
-        <div className="rounded-xl border">
+        <div className="liquid-card overflow-hidden rounded-xl">
           <Table>
             <TableHeader>
               <TableRow>

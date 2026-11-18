@@ -106,7 +106,7 @@ export function ItemManager({
         {filtered.length} de {items.length} {config.title.toLowerCase()}
       </p>
 
-      <div className="rounded-xl border">
+      <div className="liquid-card overflow-hidden rounded-xl">
         <Table>
           <TableHeader>
             <TableRow>
@@ -242,7 +242,7 @@ export function CategoryManager({
         </Button>
       </div>
 
-      <div className="rounded-xl border">
+      <div className="liquid-card overflow-hidden rounded-xl">
         <Table>
           <TableHeader>
             <TableRow>

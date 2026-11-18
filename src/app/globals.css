@@ -248,53 +248,216 @@ html {
   color-scheme: dark;
 }
 
+/* ---------- Ambient background: blurred light orbs + faint grid ---------- */
 .app-ambient {
   position: fixed;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(60rem 36rem at 90% -12%, rgb(24 124 250 / 0.2), transparent 60%),
-    radial-gradient(44rem 30rem at -8% 108%, rgb(28 230 211 / 0.09), transparent 60%);
 }
 
+.ambient-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  will-change: transform;
+}
+
+.ambient-orb-blue {
+  top: -14rem;
+  right: -10rem;
+  width: 42rem;
+  height: 42rem;
+  background: radial-gradient(circle at 30% 30%, rgb(24 124 250 / 0.55), rgb(24 124 250 / 0) 70%);
+}
+
+.ambient-orb-cyan {
+  bottom: -16rem;
+  left: 8rem;
+  width: 38rem;
+  height: 38rem;
+  background: radial-gradient(circle at 60% 40%, rgb(28 230 211 / 0.28), rgb(28 230 211 / 0) 70%);
+}
+
+.ambient-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 60% 20%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 60% 20%, #000 0%, transparent 75%);
+}
+
+/* ---------- Liquid glass surfaces ---------- */
 .liquid-sidebar {
-  background: linear-gradient(
-    180deg,
-    color-mix(in oklab, var(--liggo-navy) 94%, transparent),
-    color-mix(in oklab, #091225 96%, transparent)
-  );
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  backdrop-filter: blur(22px) saturate(140%);
-  border-right: 1px solid rgb(255 255 255 / 0.07);
+  background:
+    radial-gradient(120% 40% at 0% 0%, rgb(24 124 250 / 0.22), transparent 60%),
+    linear-gradient(180deg, rgb(8 26 72 / 0.78) 0%, rgb(7 18 50 / 0.9) 100%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border-right: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset -1px 0 0 rgb(255 255 255 / 0.05),
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    24px 0 64px rgb(0 0 0 / 0.28);
 }
 
 .liquid-topbar {
-  background: color-mix(in oklab, #091225 72%, transparent);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  background: linear-gradient(180deg, rgb(16 32 70 / 0.74), rgb(9 18 37 / 0.56));
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  backdrop-filter: blur(26px) saturate(170%);
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.07),
+    0 12px 40px rgb(0 0 0 / 0.18);
+}
+
+.liquid-popover {
+  background: linear-gradient(180deg, rgb(18 36 78 / 0.9), rgb(9 20 52 / 0.92));
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  backdrop-filter: blur(30px) saturate(170%);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 24px 64px rgb(0 0 0 / 0.5);
+}
+
+.liquid-card {
+  position: relative;
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.028));
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    inset 0 0 0 1px rgb(255 255 255 / 0.015),
+    0 18px 48px rgb(0 0 0 / 0.25);
+}
+
+.glass-row {
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.07);
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.glass-row:hover {
+  background: rgb(255 255 255 / 0.075);
+  border-color: rgb(255 255 255 / 0.12);
 }
 
 .glass-button,
 .glass-input {
-  background: rgb(255 255 255 / 0.06);
-  border: 1px solid rgb(255 255 255 / 0.1);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04));
+  border: 1px solid rgb(255 255 255 / 0.12);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 2px rgb(0 0 0 / 0.3);
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease;
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .glass-button:hover {
-  background: rgb(255 255 255 / 0.1);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0.07));
+  border-color: rgb(255 255 255 / 0.2);
 }
 
 .glass-input:focus-visible {
   border-color: rgb(28 230 211 / 0.55);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 0 0 4px rgb(28 230 211 / 0.1);
+}
+
+.sidebar-toggle {
+  background: linear-gradient(180deg, rgb(26 48 104 / 0.95), rgb(11 30 84 / 0.95));
+  border: 1px solid rgb(255 255 255 / 0.16);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 6px 16px rgb(0 0 0 / 0.4);
+}
+
+.brand-mark {
+  background: linear-gradient(135deg, #187cfa 0%, #0b5fd8 55%, #0b2e78 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 8px 24px rgb(24 124 250 / 0.45);
 }
 
 .nav-active {
-  background: linear-gradient(90deg, rgb(24 124 250 / 0.34), rgb(24 124 250 / 0.12));
-  box-shadow: inset 0 0 0 1px rgb(24 124 250 / 0.38);
+  background: linear-gradient(90deg, rgb(24 124 250 / 0.42), rgb(28 230 211 / 0.1));
+  box-shadow:
+    inset 0 0 0 1px rgb(124 196 255 / 0.3),
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 10px 28px rgb(24 124 250 / 0.2);
+}
+
+.primary-button,
+.theme-dark a.bg-primary,
+.theme-dark button.bg-primary {
+  background: linear-gradient(135deg, #2b8dff 0%, #187cfa 45%, #0b5fd8 100%);
+  border-color: rgb(255 255 255 / 0.18);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    0 10px 28px rgb(24 124 250 / 0.38);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.primary-button:hover,
+.theme-dark a.bg-primary:hover,
+.theme-dark button.bg-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    0 14px 34px rgb(24 124 250 / 0.5);
+}
+
+/* ---------- Same glass language for shadcn components inside the shell ---------- */
+.theme-dark [data-slot="card"],
+.theme-dark [data-slot="empty"] {
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.028));
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 0 0 1px rgb(255 255 255 / 0.09),
+    0 18px 48px rgb(0 0 0 / 0.25);
+}
+
+.theme-dark [data-slot="input"],
+.theme-dark [data-slot="input-group"],
+.theme-dark [data-slot="native-select"],
+.theme-dark [data-slot="textarea"] {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03));
+  border-color: rgb(255 255 255 / 0.14);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.theme-dark [data-slot="button"].bg-background {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04));
+  border-color: rgb(255 255 255 / 0.14);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+[data-slot="dialog-content"].theme-dark,
+[data-slot="alert-dialog-content"].theme-dark,
+[data-slot="popover-content"].theme-dark,
+[data-slot="dropdown-menu-content"].theme-dark {
+  background: linear-gradient(180deg, rgb(18 36 78 / 0.92), rgb(9 20 52 / 0.94));
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  backdrop-filter: blur(30px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 0 0 1px rgb(255 255 255 / 0.12),
+    0 24px 64px rgb(0 0 0 / 0.5);
 }

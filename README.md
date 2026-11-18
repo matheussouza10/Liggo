@@ -24,7 +24,8 @@ antes de rodar `npm run db:seed`. Sem essas variáveis o seed não cria ninguém
 - Login administrativo: `/admin/login` (depois do login: `/admin`)
 - Cadastro de organização: `/signup`
 - Recuperação de senha: `/forgot-password` (tela pronta, envio de e-mail ainda não implementado)
-- Eventos do organizador: `/events`, `/events/new`, `/events/[id]`
+- Atletas, times e árbitros do organizador: `/athletes`, `/teams`, `/referees` (cada um com `/new` e `/[id]`)
+- Eventos do organizador: `/events`, `/events/new`, `/events/[id]`, `/events/[id]/rules` (regras da competição)
 - Cadastros do admin: `/admin/sports`, `/admin/event-types`, `/admin/formats` (cada um com `/categories`)
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).

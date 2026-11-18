@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slug";
+import { sameName } from "@/lib/text";
 import type { CatalogKey, CategoryRow, ItemInput, ItemRow } from "./types";
 
 /**
@@ -33,11 +34,6 @@ type Adapter = {
   itemExists(id: string): Promise<boolean>;
 };
 
-const insensitive = (value: string) => ({
-  equals: value,
-  mode: "insensitive" as const,
-});
-const notId = (id?: string) => (id ? { NOT: { id } } : {});
 const byOrder = [{ sortOrder: "asc" as const }, { name: "asc" as const }];
 
 async function uniqueSlug(
@@ -85,11 +81,10 @@ const sports: Adapter = {
       ...emptyExtras,
     }));
   },
-  categoryByName: (name, excludeId) =>
-    prisma.sportCategory.findFirst({
-      where: { name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  categoryByName: async (name, excludeId) =>
+    (
+      await prisma.sportCategory.findMany({ select: { id: true, name: true } })
+    ).find((c) => c.id !== excludeId && sameName(c.name, name)) ?? null,
   async createCategory(name) {
     const last = await prisma.sportCategory.aggregate({
       _max: { sortOrder: true },
@@ -111,11 +106,13 @@ const sports: Adapter = {
       where: { id },
       select: { id: true, active: true },
     }),
-  itemByName: (categoryId, name, excludeId) =>
-    prisma.sport.findFirst({
-      where: { categoryId, name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  itemByName: async (categoryId, name, excludeId) =>
+    (
+      await prisma.sport.findMany({
+        where: { categoryId },
+        select: { id: true, name: true },
+      })
+    ).find((i) => i.id !== excludeId && sameName(i.name, name)) ?? null,
   async createItem(input) {
     const last = await prisma.sport.aggregate({
       where: { categoryId: input.categoryId },
@@ -180,11 +177,12 @@ const eventTypes: Adapter = {
       description: r.description,
     }));
   },
-  categoryByName: (name, excludeId) =>
-    prisma.eventTypeCategory.findFirst({
-      where: { name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  categoryByName: async (name, excludeId) =>
+    (
+      await prisma.eventTypeCategory.findMany({
+        select: { id: true, name: true },
+      })
+    ).find((c) => c.id !== excludeId && sameName(c.name, name)) ?? null,
   async createCategory(name) {
     const last = await prisma.eventTypeCategory.aggregate({
       _max: { sortOrder: true },
@@ -206,11 +204,13 @@ const eventTypes: Adapter = {
       where: { id },
       select: { id: true, active: true },
     }),
-  itemByName: (categoryId, name, excludeId) =>
-    prisma.eventType.findFirst({
-      where: { categoryId, name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  itemByName: async (categoryId, name, excludeId) =>
+    (
+      await prisma.eventType.findMany({
+        where: { categoryId },
+        select: { id: true, name: true },
+      })
+    ).find((i) => i.id !== excludeId && sameName(i.name, name)) ?? null,
   async createItem(input) {
     const last = await prisma.eventType.aggregate({
       where: { categoryId: input.categoryId },
@@ -283,11 +283,10 @@ const formats: Adapter = {
       allowsRepechage: r.allowsRepechage,
     }));
   },
-  categoryByName: (name, excludeId) =>
-    prisma.formatCategory.findFirst({
-      where: { name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  categoryByName: async (name, excludeId) =>
+    (
+      await prisma.formatCategory.findMany({ select: { id: true, name: true } })
+    ).find((c) => c.id !== excludeId && sameName(c.name, name)) ?? null,
   async createCategory(name) {
     const last = await prisma.formatCategory.aggregate({
       _max: { sortOrder: true },
@@ -309,11 +308,13 @@ const formats: Adapter = {
       where: { id },
       select: { id: true, active: true },
     }),
-  itemByName: (categoryId, name, excludeId) =>
-    prisma.competitionFormat.findFirst({
-      where: { categoryId, name: insensitive(name), ...notId(excludeId) },
-      select: { id: true },
-    }),
+  itemByName: async (categoryId, name, excludeId) =>
+    (
+      await prisma.competitionFormat.findMany({
+        where: { categoryId },
+        select: { id: true, name: true },
+      })
+    ).find((i) => i.id !== excludeId && sameName(i.name, name)) ?? null,
   async createItem(input) {
     const last = await prisma.competitionFormat.aggregate({
       where: { categoryId: input.categoryId },

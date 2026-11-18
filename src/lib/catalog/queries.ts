@@ -90,3 +90,39 @@ export async function getEventFormOptions() {
     ),
   };
 }
+
+/** Every active sport grouped by category, with how many positions it has (admin positions page). */
+export async function getSportsWithPositionCount() {
+  const sports = await prisma.sport.findMany({
+    where: { active: true, category: { active: true } },
+    orderBy: [
+      { category: { sortOrder: "asc" } },
+      { sortOrder: "asc" },
+      { name: "asc" },
+    ],
+    include: { category: true, _count: { select: { positions: true } } },
+  });
+  const groups: {
+    category: string;
+    options: { id: string; name: string; positions: number }[];
+  }[] = [];
+  for (const sport of sports) {
+    const option = {
+      id: sport.id,
+      name: sport.name,
+      positions: sport._count.positions,
+    };
+    const last = groups.at(-1);
+    if (last && last.category === sport.category.name)
+      last.options.push(option);
+    else groups.push({ category: sport.category.name, options: [option] });
+  }
+  return groups;
+}
+
+export function getPositions(sportId: string) {
+  return prisma.sportPosition.findMany({
+    where: { sportId },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+  });
+}

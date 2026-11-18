@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import {
@@ -143,5 +144,7 @@ export async function createEventAction(
     select: { id: true },
   });
 
+  // Refresh the events list and the count shown in the sidebar.
+  revalidatePath("/", "layout");
   redirect(`/events/${event.id}`);
 }

@@ -44,6 +44,8 @@ import { adminNav, organizerNav, type NavItem } from "./nav-config";
 type Props = {
   area: "organizer" | "admin";
   user: { name: string; detail: string };
+  /** Real number of events of the organization, shown next to "Eventos". */
+  eventCount?: number;
   children: ReactNode;
 };
 
@@ -67,11 +69,12 @@ function initialsOf(name: string): string {
   return letters.filter(Boolean).join("").toUpperCase() || "?";
 }
 
+// Avatar gradient from the Figma design.
 function Avatar({ name, className }: { name: string; className?: string }) {
   return (
     <span
       className={cn(
-        "grid shrink-0 place-items-center rounded-full bg-linear-to-br from-liggo-primary to-liggo-accent font-bold text-liggo-ink",
+        "grid shrink-0 place-items-center rounded-full bg-linear-to-br from-[#ffbc7d] to-[#b9553e] font-bold text-white",
         className,
       )}
       aria-hidden="true"
@@ -81,7 +84,7 @@ function Avatar({ name, className }: { name: string; className?: string }) {
   );
 }
 
-export function AppShell({ area, user, children }: Props) {
+export function AppShell({ area, user, eventCount, children }: Props) {
   const nav = area === "admin" ? adminNav : organizerNav;
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -105,27 +108,31 @@ export function AppShell({ area, user, children }: Props) {
       : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
   const allItems = nav.sections.flatMap((section) => section.items);
-  const pageTitle = allItems.find(isActive)?.label ?? "Painel de controle";
+  const active = allItems.find(isActive);
+  const pageTitle =
+    !active || active.href === nav.home ? "Painel de controle" : active.label;
 
   const signOut = () =>
     startTransition(async () => void (await signOutAction()));
 
   const renderLink = (item: NavItem, muted = false) => {
-    const active = isActive(item);
+    const current = isActive(item);
+    const badge =
+      item.href === "/events" && eventCount ? String(eventCount) : null;
     return (
       <Link
         key={item.href}
         href={item.href}
         title={collapsed ? item.label : undefined}
-        aria-current={active ? "page" : undefined}
+        aria-current={current ? "page" : undefined}
         onClick={() => setMobileOpen(false)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium no-underline transition-colors",
+          "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-medium no-underline transition-all",
           collapsed && "lg:justify-center lg:px-2",
-          active
+          current
             ? "nav-active text-white"
             : muted
-              ? "text-[#a3a9c0] hover:bg-white/[.06] hover:text-white"
+              ? "text-[#959bb3] hover:bg-white/[.055] hover:text-white"
               : "text-[#b5b8be] hover:bg-white/[.07] hover:text-white",
         )}
       >
@@ -133,16 +140,26 @@ export function AppShell({ area, user, children }: Props) {
         <span className={cn("flex-1", collapsed && "lg:hidden")}>
           {item.label}
         </span>
+        {badge ? (
+          <span
+            className={cn(
+              "rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums",
+              collapsed && "lg:hidden",
+              current ? "bg-white/15" : "bg-[#292d48] text-[#b5bad0]",
+            )}
+          >
+            {badge}
+          </span>
+        ) : null}
       </Link>
     );
   };
 
-  const sectionLabel = (text: string, className?: string) => (
+  const sectionLabel = (text: string) => (
     <p
       className={cn(
-        "mb-2 px-3 text-[10px] font-semibold tracking-[.17em] text-[#8a91ab] uppercase",
+        "mb-2 px-3 text-[10px] font-semibold tracking-[.17em] text-[#676e89] uppercase",
         collapsed && "lg:invisible",
-        className,
       )}
     >
       {text}
@@ -150,28 +167,32 @@ export function AppShell({ area, user, children }: Props) {
   );
 
   return (
-    <div className="theme-dark relative min-h-dvh bg-background text-foreground">
-      <div className="app-ambient" aria-hidden="true" />
+    <div className="theme-dark relative min-h-dvh overflow-hidden bg-[#091225] text-white">
+      <div className="app-ambient" aria-hidden="true">
+        <div className="ambient-orb ambient-orb-blue" />
+        <div className="ambient-orb ambient-orb-cyan" />
+        <div className="ambient-grid" />
+      </div>
 
       {mobileOpen ? (
         <button
           type="button"
           aria-label="Fechar menu"
-          className="fixed inset-0 z-40 bg-[#091225]/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-[#11172d]/50 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       ) : null}
 
       <aside
         className={cn(
-          "liquid-sidebar fixed inset-y-0 left-0 z-50 flex w-[258px] flex-col px-4 py-5 transition-[width,transform,padding] duration-300 lg:translate-x-0",
+          "liquid-sidebar fixed inset-y-0 left-0 z-50 flex w-[258px] flex-col px-4 py-5 text-white transition-[width,transform,padding] duration-300 lg:translate-x-0",
           collapsed ? "lg:w-[88px] lg:px-3" : "lg:w-[258px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div
           className={cn(
-            "mb-8 flex h-10 items-center justify-between px-1",
+            "mb-8 flex h-10 items-center justify-between px-2",
             collapsed && "lg:justify-center lg:px-0",
           )}
         >
@@ -211,7 +232,7 @@ export function AppShell({ area, user, children }: Props) {
           }
           title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
           onClick={() => setCollapsed((value) => !value)}
-          className="absolute top-[82px] -right-3.5 hidden size-7 place-items-center rounded-full border border-white/15 bg-liggo-deep-blue text-[#b5b8be] transition-colors hover:text-liggo-accent lg:grid"
+          className="sidebar-toggle absolute top-[82px] -right-3.5 hidden size-7 place-items-center rounded-full text-[#b5b8be] transition hover:text-[#1ce6d3] lg:grid"
         >
           <ChevronRightIcon
             className={cn(
@@ -234,13 +255,13 @@ export function AppShell({ area, user, children }: Props) {
           <div
             title={collapsed ? "Plano Starter" : undefined}
             className={cn(
-              "mt-auto overflow-hidden rounded-2xl border border-white/[.07] bg-linear-to-br from-liggo-deep-blue/55 to-liggo-navy/70 p-4",
+              "mt-auto overflow-hidden rounded-2xl border border-white/[.06] bg-linear-to-br from-[#262b49] to-[#20243e] p-4",
               collapsed && "lg:p-2.5",
             )}
           >
             <div
               className={cn(
-                "grid size-8 place-items-center rounded-lg bg-liggo-primary/20 text-liggo-accent",
+                "grid size-8 place-items-center rounded-lg bg-[#187cfa]/20 text-[#1ce6d3]",
                 !collapsed && "mb-3",
               )}
             >
@@ -248,13 +269,13 @@ export function AppShell({ area, user, children }: Props) {
             </div>
             <div className={cn(collapsed && "lg:hidden")}>
               <p className="text-[13px] font-semibold">Plano Starter</p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#9aa1ba]">
+              <p className="mt-1 text-[11px] leading-relaxed text-[#8f95ae]">
                 Você está usando 6 de 8 campeonatos.
               </p>
               <div className="my-3 h-1 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-3/4 rounded-full bg-linear-to-r from-liggo-primary to-liggo-accent" />
+                <div className="h-full w-3/4 rounded-full bg-linear-to-r from-[#187cfa] to-[#1ce6d3]" />
               </div>
-              <span className="text-[11px] font-semibold text-liggo-accent">
+              <span className="text-[11px] font-semibold text-[#1ce6d3]">
                 Fazer upgrade →
               </span>
             </div>
@@ -263,7 +284,7 @@ export function AppShell({ area, user, children }: Props) {
 
         <div
           className={cn(
-            "flex items-center gap-3 border-t border-white/[.07] px-1 pt-4",
+            "flex items-center gap-3 border-t border-white/[.06] px-1 pt-4",
             area === "organizer" ? "mt-4" : "mt-auto",
             collapsed && "lg:justify-center",
           )}
@@ -275,8 +296,11 @@ export function AppShell({ area, user, children }: Props) {
           />
           <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
             <p className="truncate text-xs font-semibold">{user.name}</p>
-            <p className="truncate text-[10px] text-[#8e94ac]">{user.detail}</p>
+            <p className="truncate text-[10px] text-[#7d849e]">{user.detail}</p>
           </div>
+          <ChevronDownIcon
+            className={cn("size-4 text-[#6f758e]", collapsed && "lg:hidden")}
+          />
         </div>
       </aside>
 
@@ -300,7 +324,7 @@ export function AppShell({ area, user, children }: Props) {
             <p className="truncate text-[15px] font-bold tracking-tight">
               {pageTitle}
             </p>
-            <p className="min-h-4 text-[11px] text-[#9aa0b5]">{today}</p>
+            <p className="min-h-4 text-[11px] text-[#9094a7]">{today}</p>
           </div>
 
           <div className="relative mx-auto flex h-10 max-w-[330px] flex-1 items-center sm:mx-5 lg:mx-8">
@@ -309,7 +333,7 @@ export function AppShell({ area, user, children }: Props) {
               type="search"
               aria-label="Buscar"
               placeholder="Buscar campeonatos, times..."
-              className="glass-input h-full w-full rounded-xl pr-4 pl-10 text-xs text-white outline-none placeholder:text-[#9a9eab]"
+              className="glass-input h-full w-full rounded-xl pr-4 pl-10 text-xs text-white outline-none transition placeholder:text-[#848892] focus:ring-4 focus:ring-[#1ce6d3]/10"
             />
           </div>
 
@@ -319,7 +343,7 @@ export function AppShell({ area, user, children }: Props) {
                 <button
                   type="button"
                   aria-label="Notificações"
-                  className="glass-button grid size-10 place-items-center rounded-xl text-[#b5b8be] hover:text-liggo-accent"
+                  className="glass-button relative grid size-10 place-items-center rounded-xl text-[#b5b8be] transition hover:text-[#1ce6d3]"
                 />
               }
             >
@@ -327,11 +351,13 @@ export function AppShell({ area, user, children }: Props) {
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-72 border-white/10 bg-popover"
+              className="theme-dark liquid-popover w-72 rounded-2xl p-3"
             >
-              <PopoverHeader>
-                <PopoverTitle>Notificações</PopoverTitle>
-                <PopoverDescription>
+              <PopoverHeader className="px-2 pb-2">
+                <PopoverTitle className="text-xs font-bold">
+                  Notificações
+                </PopoverTitle>
+                <PopoverDescription className="text-[11px] text-[#b5b8be]">
                   Nenhuma notificação por enquanto.
                 </PopoverDescription>
               </PopoverHeader>
@@ -355,13 +381,16 @@ export function AppShell({ area, user, children }: Props) {
                 <span className="block text-xs font-semibold">
                   {user.name.split(" ")[0]}
                 </span>
-                <span className="block text-[10px] text-[#9aa0b5]">
+                <span className="block text-[10px] text-[#999dae]">
                   {nav.roleLabel}
                 </span>
               </span>
               <ChevronDownIcon className="size-3.5 text-[#9b9eac]" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="theme-dark min-w-52">
+            <DropdownMenuContent
+              align="end"
+              className="theme-dark liquid-popover min-w-52 rounded-2xl"
+            >
               <DropdownMenuGroup>
                 <DropdownMenuLabel className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold text-foreground">
