@@ -42,6 +42,7 @@ const stage = (
   thirdPlaceMatch: false,
   grandFinalMode: "NONE",
   seeding: "MANUAL",
+  pairings: null,
   ...over,
 });
 

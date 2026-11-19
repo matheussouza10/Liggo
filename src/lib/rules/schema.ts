@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateTemplate } from "@/lib/competition/pairing-template";
 import {
   GRAND_FINAL_MODES,
   LIMITS,
@@ -69,6 +70,16 @@ export const placePointSchema = z.object({
   points: z.number().min(0).max(1000),
 });
 
+export const sourceSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("GROUP_RANK"),
+    group: int(1, 16),
+    rank: int(1, 12),
+  }),
+  z.object({ type: z.literal("WINNER"), match: int(1, 32) }),
+]);
+export const pairingSchema = z.object({ a: sourceSchema, b: sourceSchema });
+
 export const stageSchema = z
   .object({
     name: z
@@ -85,6 +96,8 @@ export const stageSchema = z
     thirdPlaceMatch: z.boolean(),
     grandFinalMode: z.enum(GRAND_FINAL_MODES),
     seeding: z.enum(SEEDING_MODES),
+    /** Matchups by origin, or null for the automatic cross. */
+    pairings: z.array(pairingSchema).max(32).nullable(),
   })
   .superRefine((stage, ctx) => {
     if (stage.type === "GROUPS") {
@@ -168,6 +181,17 @@ export const rulesInputSchema = z
           code: "custom",
           path: ["tiebreakers", i],
           message: "Esse critério não vale para confronto direto.",
+        });
+    });
+
+    r.stages.forEach((stage, i) => {
+      if (!stage.pairings) return;
+      const message = validateTemplate(r.stages, i, stage.pairings);
+      if (message)
+        ctx.addIssue({
+          code: "custom",
+          path: ["stages", i, "pairings"],
+          message,
         });
     });
 

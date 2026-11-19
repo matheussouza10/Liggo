@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function Home() {
   return (
@@ -22,6 +24,17 @@ export default function Home() {
       <p className="text-xl font-medium text-balance">
         Toda competição começa aqui.
       </p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Link href="/watch" className={buttonVariants({ size: "lg" })}>
+          Acompanhar jogos ao vivo
+        </Link>
+        <Link
+          href="/login"
+          className={buttonVariants({ variant: "outline", size: "lg" })}
+        >
+          Sou organizador
+        </Link>
+      </div>
     </main>
   );
 }

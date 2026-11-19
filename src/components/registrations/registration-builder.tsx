@@ -9,7 +9,15 @@ import {
   XIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { startTransition, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  startTransition,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -216,6 +224,31 @@ export function RegistrationBuilder({
     })),
   });
 
+  const router = useRouter();
+  const listUrl = `/events/${eventId}/registrations`;
+
+  // Back to the state of a fresh visit. The router keeps the state of screens
+  // you leave, so without this the next visit would show the last selection and
+  // a button still stuck on "Salvando".
+  const reset = () => {
+    setCategoryId(initial?.categoryId ?? categories[0]?.id ?? "");
+    setTeamId(initial?.teamId ?? "");
+    setMembers(initial?.members ?? []);
+    setStaff(initial?.staff ?? []);
+    setChoice("");
+    setErrors({});
+    setFormError(null);
+    setPending(false);
+    setConfirmDelete(false);
+  };
+  const resetRef = useRef(reset);
+  useEffect(() => {
+    resetRef.current = reset;
+  });
+  // Leaving the screen (by any route) clears it. Hidden screens only drop their
+  // layout effects, so this is one.
+  useLayoutEffect(() => () => resetRef.current(), []);
+
   const save = () => {
     setPending(true);
     setFormError(null);
@@ -225,7 +258,11 @@ export function RegistrationBuilder({
         initial?.registrationId ?? null,
         payload(),
       );
-      // A successful save redirects, so reaching this point means it failed.
+      if (result?.ok) {
+        reset();
+        router.push(listUrl);
+        return;
+      }
       setPending(false);
       setErrors(result?.fieldErrors ?? {});
       setFormError(result?.error ?? "Não foi possível salvar.");
@@ -239,10 +276,13 @@ export function RegistrationBuilder({
         eventId,
         initial.registrationId,
       );
-      if (result?.error) {
+      if ("error" in result && result.error) {
         setConfirmDelete(false);
         setFormError(result.error);
+        return;
       }
+      reset();
+      router.push(listUrl);
     });
   };
 

@@ -2,7 +2,12 @@ import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ClipboardListIcon, SlidersHorizontalIcon } from "lucide-react";
+import {
+  BarChart3Icon,
+  ClipboardListIcon,
+  SlidersHorizontalIcon,
+  SwordsIcon,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -17,6 +22,7 @@ import { requireOrganizationUser } from "@/lib/auth/guards";
 import { PARTICIPATION_LABELS } from "@/lib/catalog/config";
 import { formatDay } from "@/lib/events/constants";
 import { getEvent } from "@/lib/events/queries";
+import { PublicToggle } from "@/components/competition/public-toggle";
 import { prisma } from "@/lib/prisma";
 import { storedRulesToInput } from "@/lib/rules/queries";
 import { summarizeRules } from "@/lib/rules/summary";
@@ -206,6 +212,52 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
           {" em "}
           {categoryCount} {categoryCount === 1 ? "categoria" : "categorias"}.
         </p>
+      </section>
+
+      <section
+        className="flex flex-col gap-4 border-t pt-6"
+        aria-labelledby="stages-heading"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2
+            id="stages-heading"
+            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+          >
+            Fases e jogos
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/events/${event.id}/stats`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <BarChart3Icon data-icon="inline-start" />
+              Estatísticas
+            </Link>
+            <Link
+              href={`/events/${event.id}/stages`}
+              className={buttonVariants()}
+            >
+              <SwordsIcon data-icon="inline-start" />
+              Abrir fases
+            </Link>
+          </div>
+        </div>
+        <p className="text-muted-foreground">
+          Sorteio, tabela de jogos, resultados, classificação e calendário.
+        </p>
+      </section>
+
+      <section
+        className="flex flex-col gap-4 border-t pt-6"
+        aria-labelledby="public-heading"
+      >
+        <h2
+          id="public-heading"
+          className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+        >
+          Página pública
+        </h2>
+        <PublicToggle eventId={event.id} initial={event.publicVisible} />
       </section>
     </div>
   );

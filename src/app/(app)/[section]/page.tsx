@@ -4,7 +4,6 @@ import { SectionPlaceholder } from "@/components/app/section-placeholder";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 
 const SECTIONS: Record<string, string> = {
-  calendar: "Calendário",
   reports: "Relatórios",
   settings: "Configurações",
   help: "Central de ajuda",

@@ -29,5 +29,9 @@ antes de rodar `npm run db:seed`. Sem essas variáveis o seed não cria ninguém
 - Cadastros do admin: `/admin/sports`, `/admin/event-types`, `/admin/formats` (cada um com `/categories`)
 - Posições por modalidade no admin: `/admin/positions`
 - Inscrições do evento: `/events/[id]/categories` e `/events/[id]/registrations` (elenco escolhido por evento, com camisa, posição, capitão e comissão técnica)
+- Fases do evento: `/events/[id]/stages` (sorteio, jogos, resultados, classificação, chave) e `/calendar` (jogos agendados)
+- Chaveamento: `/events/[id]/stages/bracket`; jogo ao vivo e lances: `/events/[id]/matches/[matchId]`
+- Site público, sem login: `/watch` (jogos ao vivo, próximos, resultados e eventos), `/watch/events/[id]` e `/watch/matches/[id]` (tempo real)
+- Estatísticas: `/events/[id]/stats` e `/watch/events/[id]/stats` (artilharia, cartões, faltas, posse); por jogo, nas telas do jogo
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).

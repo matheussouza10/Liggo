@@ -21,6 +21,7 @@ import {
   type StageTypeKey,
 } from "@/lib/rules/catalog";
 import type { StageInput } from "@/lib/rules/schema";
+import { PairingsTemplateEditor } from "@/components/competition/pairings-template-editor";
 import { Block, NumberField, SwitchField, type SectionProps } from "./fields";
 
 function defaultsFor(type: StageTypeKey): StageInput {
@@ -35,6 +36,7 @@ function defaultsFor(type: StageTypeKey): StageInput {
     thirdPlaceMatch: false,
     grandFinalMode: type === "DOUBLE_ELIM" ? "SINGLE" : "NONE",
     seeding: "MANUAL",
+    pairings: null,
   };
 }
 
@@ -286,6 +288,23 @@ export function StagesSection({ rules, patch, errors }: SectionProps) {
                 </Field>
               ) : null}
             </div>
+            {stage.type === "SINGLE_ELIM" && index > 0 ? (
+              <div className="mt-5 border-t pt-4">
+                <h4 className="mb-3 text-sm font-semibold">Confrontos</h4>
+                <PairingsTemplateEditor
+                  stages={stages}
+                  index={index}
+                  value={stage.pairings}
+                  onChange={(pairings) => update(index, { pairings })}
+                  idPrefix={`rules-${index}`}
+                />
+                {err(index, "pairings") ? (
+                  <p className="mt-2 text-sm text-destructive">
+                    {err(index, "pairings")}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </li>
         ))}
       </ol>

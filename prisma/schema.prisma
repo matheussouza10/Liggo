@@ -43,6 +43,7 @@ model User {
   sessions      Session[]
   createdEvents Event[]
   registrations Registration[]
+  matchEvents   MatchEvent[]
 
   @@index([organizationId])
   @@map("users")
@@ -189,6 +190,8 @@ model Event {
   state             String?
   // Set when the first match is played; rules cannot change after that.
   rulesLockedAt     DateTime?
+  // Whether the event shows on the public pages (/watch).
+  publicVisible     Boolean           @default(true)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -301,10 +304,13 @@ model EventStage {
   thirdPlaceMatch   Boolean        @default(false)
   grandFinalMode    GrandFinalMode @default(NONE)
   seeding           SeedingMode    @default(MANUAL)
+  /// Matchups by origin ("1st of Group A against 2nd of Group B"); empty means the automatic cross.
+  pairings          Json?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  runs  StageRun[]
 
   @@unique([eventId, order])
   @@map("event_stages")
@@ -345,6 +351,8 @@ model Athlete {
 
   organizations OrganizationAthlete[]
   registrations RegistrationMember[]
+  matchEvents   MatchEvent[]          @relation("MatchEventAthlete")
+  matchEventsAs MatchEvent[]          @relation("MatchEventOther")
 
   @@index([createdByOrganizationId])
   @@map("athletes")
@@ -403,6 +411,7 @@ model Referee {
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   sports       RefereeSport[]
+  matches      Match[]
 
   @@index([organizationId])
   @@map("referees")
@@ -470,6 +479,7 @@ model EventCategory {
   event         Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registrations Registration[]
   members       RegistrationMember[]
+  stageRuns     StageRun[]
 
   @@unique([eventId, name])
   @@index([eventId])
@@ -493,6 +503,7 @@ model Registration {
   createdBy User                 @relation(fields: [createdById], references: [id], onDelete: Restrict)
   members   RegistrationMember[]
   staff     RegistrationStaff[]
+  entries   StageEntry[]
 
   // A team enters a category once (several null teams are allowed).
   @@unique([categoryId, teamId])
@@ -535,4 +546,181 @@ model RegistrationStaff {
 
   @@index([registrationId])
   @@map("registration_staff")
+}
+
+enum StageRunStatus {
+  /// Participants drawn; matches not generated yet.
+  DRAWN
+  /// Matches exist.
+  LIVE
+  /// Finished; qualified teams were sent to the next stage.
+  DONE
+}
+
+enum MatchStatus {
+  SCHEDULED
+  FINISHED
+  WALKOVER
+}
+
+enum MatchSlot {
+  HOME
+  AWAY
+}
+
+/// One stage played by one category. Each category is its own competition.
+model StageRun {
+  id            String         @id @default(cuid())
+  stageId       String
+  categoryId    String
+  status        StageRunStatus @default(DRAWN)
+  /// Seed of the draw, so it can be reproduced and audited.
+  drawSeed      Int
+  drawMode      SeedingMode
+  /// True when the organizer chose who plays whom (knockout); then the order of the participants is the list of matchups.
+  manualPairing Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  stage    EventStage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  category EventCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  groups   StageGroup[]
+  entries  StageEntry[]
+  matches  Match[]
+
+  @@unique([stageId, categoryId])
+  @@map("stage_runs")
+}
+
+model StageGroup {
+  id         String @id @default(cuid())
+  stageRunId String
+  name       String
+  order      Int
+
+  stageRun StageRun     @relation(fields: [stageRunId], references: [id], onDelete: Cascade)
+  entries  StageEntry[]
+  matches  Match[]
+
+  @@unique([stageRunId, order])
+  @@map("stage_groups")
+}
+
+/// A participant (a registration) in one stage run.
+model StageEntry {
+  id             String  @id @default(cuid())
+  stageRunId     String
+  registrationId String
+  groupId        String?
+  /// Seed number (1 is the best); empty means unseeded.
+  seed           Int?
+  /// Position used to order the draw and the bracket.
+  position       Int     @default(0)
+  /// Where the participant came from, to name the matchups ("1º do Grupo A", "Vencedor do jogo 2").
+  originGroup    Int?
+  originRank     Int?
+  originMatch    Int?
+
+  stageRun     StageRun     @relation(fields: [stageRunId], references: [id], onDelete: Cascade)
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  group        StageGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  home         Match[]      @relation("MatchHome")
+  away         Match[]      @relation("MatchAway")
+  won          Match[]      @relation("MatchWinner")
+
+  @@unique([stageRunId, registrationId])
+  @@index([registrationId])
+  @@map("stage_entries")
+}
+
+model Match {
+  id             String      @id @default(cuid())
+  stageRunId     String
+  groupId        String?
+  round          Int
+  /// Order inside the round (also the bracket position).
+  position       Int
+  label          String?
+  homeEntryId    String?
+  awayEntryId    String?
+  status         MatchStatus @default(SCHEDULED)
+  homeScore      Int?
+  awayScore      Int?
+  homePenalties  Int?
+  awayPenalties  Int?
+  winnerEntryId  String?
+  /// Where the winner goes (knockout) and where the loser goes (third place).
+  nextMatchId    String?
+  nextSlot       MatchSlot?
+  loserMatchId   String?
+  loserSlot      MatchSlot?
+  scheduledAt    DateTime?
+  venue          String?
+  refereeId      String?
+  /// Set when the match is started; with no final result the match is live.
+  startedAt      DateTime?
+  liveHome       Int         @default(0)
+  liveAway       Int         @default(0)
+  /// Ball possession of the home side, 0 to 100 (the away side is the rest).
+  possessionHome Int?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  stageRun StageRun     @relation(fields: [stageRunId], references: [id], onDelete: Cascade)
+  group    StageGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  home     StageEntry?  @relation("MatchHome", fields: [homeEntryId], references: [id], onDelete: SetNull)
+  away     StageEntry?  @relation("MatchAway", fields: [awayEntryId], references: [id], onDelete: SetNull)
+  winner   StageEntry?  @relation("MatchWinner", fields: [winnerEntryId], references: [id], onDelete: SetNull)
+  referee  Referee?     @relation(fields: [refereeId], references: [id], onDelete: SetNull)
+  events   MatchEvent[]
+
+  @@index([stageRunId, round, position])
+  @@index([refereeId, scheduledAt])
+  @@index([scheduledAt])
+  @@map("matches")
+}
+
+enum MatchEventType {
+  KICKOFF
+  PERIOD_START
+  PERIOD_END
+  FULL_TIME
+  GOAL
+  OWN_GOAL
+  PENALTY_MISSED
+  YELLOW_CARD
+  RED_CARD
+  FOUL
+  SUBSTITUTION
+  TIMEOUT
+  INJURY
+  NOTE
+}
+
+/// A moment of a match: goal, card, substitution, period start... Shown live
+/// on the public page.
+model MatchEvent {
+  id             String         @id @default(cuid())
+  matchId        String
+  type           MatchEventType
+  /// Which side the moment belongs to; empty for the match as a whole.
+  side           MatchSlot?
+  minute         Int?
+  /// Player of the moment (scorer, carded, leaving the pitch).
+  athleteId      String?
+  /// Second player (assist, or who comes in on a substitution).
+  otherAthleteId String?
+  /// Points a score event is worth (1 for a goal; 2 or 3 in basketball).
+  value          Int            @default(1)
+  text           String?
+  createdById    String
+  createdAt      DateTime       @default(now())
+
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  athlete      Athlete? @relation("MatchEventAthlete", fields: [athleteId], references: [id], onDelete: SetNull)
+  otherAthlete Athlete? @relation("MatchEventOther", fields: [otherAthleteId], references: [id], onDelete: SetNull)
+  createdBy    User     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([matchId, createdAt])
+  @@map("match_events")
 }

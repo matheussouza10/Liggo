@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +8,8 @@ import { ineligibleReason } from "./eligibility";
 import { registrationSchema } from "./schemas";
 
 export type RegistrationResult = {
+  /** True when saved; the screen navigates away itself, so it can clear its state first. */
+  ok?: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
 };
@@ -234,13 +235,13 @@ export async function saveRegistrationAction(
   }
 
   revalidatePath(`/events/${eventId}`, "layout");
-  redirect(`/events/${eventId}/registrations`);
+  return { ok: true };
 }
 
 export async function deleteRegistrationAction(
   eventId: string,
   registrationId: string,
-): Promise<{ error?: string }> {
+): Promise<{ ok?: boolean; error?: string }> {
   const user = await requireOrganizationUser();
   const organizationId = user.organization?.id;
   if (
@@ -256,8 +257,17 @@ export async function deleteRegistrationAction(
   });
   if (!registration) return { error: "Inscrição não encontrada." };
 
+  // A registration that was drawn into a stage cannot just disappear.
+  const drawn = await prisma.stageEntry.count({ where: { registrationId } });
+  if (drawn > 0) {
+    return {
+      error:
+        "Esta inscrição já está no sorteio de uma fase. Desfaça o sorteio antes de excluí-la.",
+    };
+  }
+
   // Members and staff go with it (cascade), freeing the athletes and the team.
   await prisma.registration.delete({ where: { id: registrationId } });
   revalidatePath(`/events/${eventId}`, "layout");
-  redirect(`/events/${eventId}/registrations`);
+  return { ok: true };
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
   pointsRuleSchema,
+  pairingSchema,
   placePointSchema,
   sportConfigSchema,
   stageSchema,
@@ -86,6 +87,9 @@ export function storedRulesToInput(
         thirdPlaceMatch: s.thirdPlaceMatch,
         grandFinalMode: s.grandFinalMode,
         seeding: s.seeding,
+        pairings: s.pairings
+          ? parseJson(z.array(pairingSchema), s.pairings, [])
+          : null,
       }),
     ),
   };

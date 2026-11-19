@@ -72,21 +72,85 @@ export async function saveEventRulesAction(
     dropWorst: r.dropWorst,
   };
 
-  await prisma.$transaction([
-    prisma.eventRules.upsert({
+  // Stages that already have a draw or matches are referenced by them: they
+  // must stay as they are (rewriting would erase the competition).
+  const drawn = await prisma.stageRun.count({
+    where: { stage: { eventId: event.id } },
+  });
+  const rulesUpsert = prisma.eventRules.upsert({
+    where: { eventId: event.id },
+    create: { eventId: event.id, ...data },
+    update: data,
+  });
+
+  if (drawn > 0) {
+    const current = await prisma.eventStage.findMany({
       where: { eventId: event.id },
-      create: { eventId: event.id, ...data },
-      update: data,
-    }),
-    prisma.eventStage.deleteMany({ where: { eventId: event.id } }),
-    prisma.eventStage.createMany({
-      data: r.stages.map((s, index) => ({
-        eventId: event.id,
-        order: index + 1,
-        ...s,
-      })),
-    }),
-  ]);
+      orderBy: { order: "asc" },
+      include: { _count: { select: { runs: true } } },
+    });
+    const same =
+      current.length === r.stages.length &&
+      current.every((c, i) => {
+        const n = r.stages[i];
+        return (
+          c.name === n.name &&
+          c.type === n.type &&
+          c.groupCount === n.groupCount &&
+          c.groupSize === n.groupSize &&
+          c.advancingPerGroup === n.advancingPerGroup &&
+          c.roundRobinLegs === n.roundRobinLegs &&
+          c.swissRounds === n.swissRounds &&
+          c.thirdPlaceMatch === n.thirdPlaceMatch &&
+          c.grandFinalMode === n.grandFinalMode &&
+          c.seeding === n.seeding
+        );
+      });
+    if (!same) {
+      return {
+        error:
+          "As fases já têm sorteio. Desfaça o sorteio das fases antes de alterá-las.",
+      };
+    }
+    // The matchups of a stage that has not started can still change.
+    const changedStarted = current.find(
+      (c, i) =>
+        c._count.runs > 0 &&
+        JSON.stringify(c.pairings ?? null) !==
+          JSON.stringify(r.stages[i].pairings ?? null),
+    );
+    if (changedStarted) {
+      return {
+        error: `A fase "${changedStarted.name}" já começou: os confrontos dela não podem mais mudar.`,
+      };
+    }
+    await prisma.$transaction([
+      rulesUpsert,
+      ...current
+        .filter((c) => c._count.runs === 0)
+        .map((c) =>
+          prisma.eventStage.update({
+            where: { id: c.id },
+            data: {
+              pairings: r.stages[c.order - 1].pairings ?? Prisma.DbNull,
+            },
+          }),
+        ),
+    ]);
+  } else {
+    await prisma.$transaction([
+      rulesUpsert,
+      prisma.eventStage.deleteMany({ where: { eventId: event.id } }),
+      prisma.eventStage.createMany({
+        data: r.stages.map((s, index) => ({
+          eventId: event.id,
+          order: index + 1,
+          ...s,
+          pairings: s.pairings ?? Prisma.DbNull,
+        })),
+      }),
+    ]);
+  }
 
   revalidatePath("/events", "layout");
   redirect(`/events/${event.id}`);
