@@ -1,6 +1,16 @@
 "use client";
 
 import {
+  evaluateSeries,
+  type SeriesConfig,
+  type SeriesOutcome,
+} from "@/lib/competition/series";
+import {
+  evaluateSets,
+  type SetsConfig,
+  type SetsOutcome,
+} from "@/lib/competition/sets";
+import {
   CalendarClockIcon,
   CalendarPlusIcon,
   ClipboardPenIcon,
@@ -50,6 +60,8 @@ export function MatchesPanel({
   referees,
   knockout,
   penalties,
+  setsConfig,
+  series,
   live,
   eventStart,
   openMatch,
@@ -62,6 +74,8 @@ export function MatchesPanel({
   referees: Referee[];
   knockout: boolean;
   penalties: boolean;
+  setsConfig: SetsConfig | null;
+  series: SeriesConfig | null;
   live: boolean;
   eventStart: string;
   openMatch: MatchView | null;
@@ -140,6 +154,20 @@ export function MatchesPanel({
                           {m.status === "SCHEDULED"
                             ? "x"
                             : `${m.homeScore} x ${m.awayScore}`}
+                          {m.games.length ? (
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {m.games
+                                .map((x) => `${x.home}-${x.away}`)
+                                .join(" · ")}
+                            </span>
+                          ) : null}
+                          {m.sets.length ? (
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {m.sets
+                                .map((x) => `${x.home}-${x.away}`)
+                                .join(" · ")}
+                            </span>
+                          ) : null}
                           {m.homePenalties != null ? (
                             <span className="block text-xs font-normal text-muted-foreground">
                               pên. {m.homePenalties} x {m.awayPenalties}
@@ -236,6 +264,8 @@ export function MatchesPanel({
           match={current}
           knockout={knockout}
           penalties={penalties}
+          setsConfig={setsConfig}
+          series={series}
           onClose={() => {
             setResult(null);
             onCloseMatch();
@@ -268,15 +298,39 @@ export function ResultDialog({
   match,
   knockout,
   penalties,
+  setsConfig,
+  series,
   onClose,
 }: {
   eventId: string;
   match: MatchView;
   knockout: boolean;
   penalties: boolean;
+  setsConfig: SetsConfig | null;
+  series: SeriesConfig | null;
   onClose: () => void;
 }) {
   const { pending, error, run } = useAction();
+  // A knockout tie played over several games: one row per game.
+  const [games, setGames] = useState<{ home: string; away: string }[]>(() =>
+    match.games.length
+      ? match.games.map((x) => ({ home: String(x.home), away: String(x.away) }))
+      : [{ home: "", away: "" }],
+  );
+  const filledGames = games.filter((x) => x.home !== "" || x.away !== "");
+  // Scored by sets: one row per set instead of a single score.
+  const [sets, setSets] = useState<{ home: string; away: string }[]>(() =>
+    match.sets.length
+      ? match.sets.map((x) => ({ home: String(x.home), away: String(x.away) }))
+      : [{ home: "", away: "" }],
+  );
+  const filled = sets.filter((x) => x.home !== "" || x.away !== "");
+  const outcome = setsConfig
+    ? evaluateSets(
+        setsConfig,
+        filled.map((x) => ({ home: Number(x.home), away: Number(x.away) })),
+      )
+    : null;
   const [home, setHome] = useState(
     match.homeScore != null ? String(match.homeScore) : "",
   );
@@ -290,9 +344,21 @@ export function ResultDialog({
     match.awayPenalties != null ? String(match.awayPenalties) : "",
   );
   const [wo, setWo] = useState<"" | "HOME" | "AWAY">("");
+  const penPair =
+    hp !== "" && ap !== "" ? { home: Number(hp), away: Number(ap) } : null;
+  const seriesOutcome = series
+    ? evaluateSeries(
+        series,
+        filledGames.map((x) => ({
+          home: Number(x.home),
+          away: Number(x.away),
+        })),
+        penPair,
+      )
+    : null;
   const tie =
     knockout && penalties && home !== "" && home === away && wo === "";
-  const played = match.status !== "SCHEDULED";
+  const played = match.status !== "SCHEDULED" || match.games.length > 0;
 
   const save = () =>
     run(
@@ -300,9 +366,39 @@ export function ResultDialog({
         saveResultAction(eventId, match.id, {
           homeScore: num(home),
           awayScore: num(away),
-          homePenalties: tie ? num(hp) : null,
-          awayPenalties: tie ? num(ap) : null,
+          homePenalties: series
+            ? seriesOutcome?.needsPenalties ||
+              seriesOutcome?.decidedBy === "PENALTIES"
+              ? (penPair?.home ?? null)
+              : null
+            : tie
+              ? num(hp)
+              : null,
+          awayPenalties: series
+            ? seriesOutcome?.needsPenalties ||
+              seriesOutcome?.decidedBy === "PENALTIES"
+              ? (penPair?.away ?? null)
+              : null
+            : tie
+              ? num(ap)
+              : null,
+          ...(series && wo === ""
+            ? {
+                games: filledGames.map((x) => ({
+                  home: Number(x.home),
+                  away: Number(x.away),
+                })),
+              }
+            : {}),
           walkover: wo || null,
+          ...(setsConfig && wo === ""
+            ? {
+                sets: filled.map((x) => ({
+                  home: Number(x.home),
+                  away: Number(x.away),
+                })),
+              }
+            : {}),
         }),
       onClose,
     );
@@ -339,7 +435,30 @@ export function ResultDialog({
               </NativeSelectOption>
             </NativeSelect>
           </Field>
-          {wo === "" ? (
+          {wo === "" && series && seriesOutcome ? (
+            <SeriesForm
+              config={series}
+              homeName={match.homeName}
+              awayName={match.awayName}
+              games={games}
+              onChange={setGames}
+              outcome={seriesOutcome}
+              penalties={{ home: hp, away: ap }}
+              onPenalties={(h, a) => {
+                setHp(h);
+                setAp(a);
+              }}
+            />
+          ) : wo === "" && setsConfig && outcome ? (
+            <SetsForm
+              config={setsConfig}
+              homeName={match.homeName}
+              awayName={match.awayName}
+              sets={sets}
+              onChange={setSets}
+              outcome={outcome}
+            />
+          ) : wo === "" ? (
             <div className="grid grid-cols-2 gap-4">
               <Field>
                 <FieldLabel htmlFor="score-home" className="truncate">
@@ -430,7 +549,17 @@ export function ResultDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" disabled={pending} onClick={save}>
+          <Button
+            type="button"
+            disabled={
+              pending ||
+              (!!setsConfig && wo === "" && !outcome?.complete) ||
+              (!!series &&
+                wo === "" &&
+                (!!seriesOutcome?.error || filledGames.length === 0))
+            }
+            onClick={save}
+          >
             {pending ? <Spinner data-icon="inline-start" /> : null}
             Salvar resultado
           </Button>
@@ -687,5 +816,255 @@ function AutoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Set by set entry: a row per set, with the running count and the reason a set is wrong. */
+function SetsForm({
+  config,
+  homeName,
+  awayName,
+  sets,
+  onChange,
+  outcome,
+}: {
+  config: SetsConfig;
+  homeName: string | null;
+  awayName: string | null;
+  sets: { home: string; away: string }[];
+  onChange: (sets: { home: string; away: string }[]) => void;
+  outcome: SetsOutcome;
+}) {
+  const limit = 2 * config.setsToWin - 1;
+  const set = (i: number, side: "home" | "away", value: string) =>
+    onChange(sets.map((x, k) => (k === i ? { ...x, [side]: value } : x)));
+  return (
+    <div className="flex flex-col gap-3" aria-label="Sets">
+      <div className="grid grid-cols-[3.5rem_1fr_1fr] items-end gap-3 text-sm text-muted-foreground">
+        <span />
+        <span className="truncate">{homeName}</span>
+        <span className="truncate">{awayName}</span>
+      </div>
+      {sets.map((x, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[3.5rem_1fr_1fr_auto] items-center gap-3"
+        >
+          <span className="text-sm font-medium">Set {i + 1}</span>
+          <Input
+            aria-label={`Set ${i + 1}, ${homeName}`}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={x.home}
+            onChange={(e) => set(i, "home", e.target.value)}
+            className="h-10 tabular-nums"
+          />
+          <Input
+            aria-label={`Set ${i + 1}, ${awayName}`}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={x.away}
+            onChange={(e) => set(i, "away", e.target.value)}
+            className="h-10 tabular-nums"
+          />
+          {sets.length > 1 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Remover set ${i + 1}`}
+              onClick={() => onChange(sets.filter((_, k) => k !== i))}
+            >
+              Remover
+            </Button>
+          ) : (
+            <span />
+          )}
+        </div>
+      ))}
+      {sets.length < limit && !outcome.complete ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => onChange([...sets, { home: "", away: "" }])}
+        >
+          Adicionar set
+        </Button>
+      ) : null}
+      <p
+        role="status"
+        className={
+          outcome.error
+            ? "text-sm text-destructive"
+            : "text-sm text-muted-foreground"
+        }
+      >
+        {outcome.error ??
+          (outcome.complete
+            ? `Resultado: ${outcome.homeSets} x ${outcome.awaySets} em sets.`
+            : `Sets: ${outcome.homeSets} x ${outcome.awaySets}. Vence quem chegar a ${config.setsToWin}.`)}
+      </p>
+    </div>
+  );
+}
+
+const DECIDED_BY = {
+  GAMES: "pelos jogos vencidos",
+  AGGREGATE: "no agregado",
+  AWAY_GOALS: "pelo gol fora",
+  PENALTIES: "nos pênaltis",
+} as const;
+
+/** Games of a knockout tie: best of N, or two legs. Each row is a game; scores follow the order of the names. */
+function SeriesForm({
+  config,
+  homeName,
+  awayName,
+  games,
+  onChange,
+  outcome,
+  penalties,
+  onPenalties,
+}: {
+  config: SeriesConfig;
+  homeName: string | null;
+  awayName: string | null;
+  games: { home: string; away: string }[];
+  onChange: (games: { home: string; away: string }[]) => void;
+  outcome: SeriesOutcome;
+  penalties: { home: string; away: string };
+  onPenalties: (home: string, away: string) => void;
+}) {
+  const twoLegs = config.format === "HOME_AWAY";
+  const limit = twoLegs ? 2 : config.bestOf;
+  const rows = twoLegs ? 2 : games.length;
+  const list = Array.from(
+    { length: rows },
+    (_, i) => games[i] ?? { home: "", away: "" },
+  );
+  const setRow = (i: number, side: "home" | "away", value: string) =>
+    onChange(list.map((x, k) => (k === i ? { ...x, [side]: value } : x)));
+  return (
+    <div className="flex flex-col gap-3" aria-label="Jogos da série">
+      <div className="grid grid-cols-[5.5rem_1fr_1fr] items-end gap-3 text-sm text-muted-foreground">
+        <span />
+        <span className="truncate">{homeName}</span>
+        <span className="truncate">{awayName}</span>
+      </div>
+      {list.map((x, i) => (
+        <div
+          key={i}
+          className="grid grid-cols-[5.5rem_1fr_1fr_auto] items-center gap-3"
+        >
+          <span className="text-sm font-medium">
+            {twoLegs ? (i === 0 ? "Ida" : "Volta") : `Jogo ${i + 1}`}
+          </span>
+          <Input
+            aria-label={`Jogo ${i + 1}, ${homeName}`}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={x.home}
+            onChange={(e) => setRow(i, "home", e.target.value)}
+            className="h-10 tabular-nums"
+          />
+          <Input
+            aria-label={`Jogo ${i + 1}, ${awayName}`}
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={x.away}
+            onChange={(e) => setRow(i, "away", e.target.value)}
+            className="h-10 tabular-nums"
+          />
+          {!twoLegs && list.length > 1 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={`Remover jogo ${i + 1}`}
+              onClick={() => onChange(list.filter((_, k) => k !== i))}
+            >
+              Remover
+            </Button>
+          ) : (
+            <span />
+          )}
+        </div>
+      ))}
+      {twoLegs ? (
+        <p className="text-xs text-muted-foreground">
+          Ida: {homeName} é o mandante. Volta: {awayName} é o mandante. Informe
+          os gols de cada time em cada jogo.
+        </p>
+      ) : list.length < limit && !outcome.complete ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => onChange([...list, { home: "", away: "" }])}
+        >
+          Adicionar jogo
+        </Button>
+      ) : null}
+      {outcome.needsPenalties || outcome.decidedBy === "PENALTIES" ? (
+        <div className="grid grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="series-pen-home">
+              Pênaltis {homeName}
+            </FieldLabel>
+            <Input
+              id="series-pen-home"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={99}
+              value={penalties.home}
+              onChange={(e) => onPenalties(e.target.value, penalties.away)}
+              className="h-10 tabular-nums"
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="series-pen-away">
+              Pênaltis {awayName}
+            </FieldLabel>
+            <Input
+              id="series-pen-away"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={99}
+              value={penalties.away}
+              onChange={(e) => onPenalties(penalties.home, e.target.value)}
+              className="h-10 tabular-nums"
+            />
+          </Field>
+        </div>
+      ) : null}
+      <p
+        role="status"
+        className={
+          outcome.error
+            ? "text-sm text-destructive"
+            : "text-sm text-muted-foreground"
+        }
+      >
+        {outcome.error ??
+          (outcome.complete
+            ? `${outcome.winner === "HOME" ? homeName : awayName} vence ${DECIDED_BY[outcome.decidedBy ?? "GAMES"]}: ${outcome.homeScore} x ${outcome.awayScore}.`
+            : outcome.needsPenalties
+              ? `Agregado empatado em ${outcome.homeScore} x ${outcome.awayScore}: informe os pênaltis.`
+              : `Placar da série: ${outcome.homeScore} x ${outcome.awayScore}. Salve cada jogo conforme acontecer.`)}
+      </p>
+    </div>
   );
 }

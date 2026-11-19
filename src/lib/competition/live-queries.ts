@@ -37,6 +37,8 @@ export type MatchSnapshot = {
   penaltiesAway: number | null;
   /** Home share of the ball, 0 to 100, when recorded. */
   possessionHome: number | null;
+  /** Score of each set, finished or in progress (scoring by sets only). */
+  sets: { home: number; away: number }[];
   scheduledAt: string | null;
   startedAt: string | null;
   venue: string | null;
@@ -61,6 +63,7 @@ export const snapshotInclude = {
   home: entry,
   away: entry,
   referee: { select: { name: true } },
+  sets: { orderBy: { number: "asc" as const } },
   events: {
     orderBy: { createdAt: "asc" },
     include: {
@@ -131,12 +134,13 @@ export function toSnapshot(m: SnapshotSource): MatchSnapshot {
     penaltiesHome: m.homePenalties,
     penaltiesAway: m.awayPenalties,
     possessionHome: m.possessionHome,
+    sets: m.sets.map((x) => ({ home: x.homePoints, away: x.awayPoints })),
     scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
     startedAt: m.startedAt ? m.startedAt.toISOString() : null,
     venue: m.venue,
     referee: m.referee?.name ?? null,
     events,
-    version: `${events.length}:${last?.id ?? ""}:${state}:${scoreHome ?? "-"}-${scoreAway ?? "-"}:${m.homePenalties ?? ""}-${m.awayPenalties ?? ""}:${m.possessionHome ?? ""}`,
+    version: `${events.length}:${last?.id ?? ""}:${state}:${scoreHome ?? "-"}-${scoreAway ?? "-"}:${m.homePenalties ?? ""}-${m.awayPenalties ?? ""}:${m.possessionHome ?? ""}:${m.sets.map((x) => `${x.homePoints}-${x.awayPoints}`).join(",")}`,
   };
 }
 
@@ -184,6 +188,8 @@ export async function getOrganizerMatch(
     awayRoster: roster(m.away),
     publicVisible: event.publicVisible,
     ready: !!m.homeEntryId && !!m.awayEntryId,
-    knockout: m.stageRun.stage.type === "SINGLE_ELIM",
+    knockout:
+      m.stageRun.stage.type === "SINGLE_ELIM" ||
+      m.stageRun.stage.type === "DOUBLE_ELIM",
   };
 }

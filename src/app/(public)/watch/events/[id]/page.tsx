@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { BracketTree } from "@/components/competition/bracket-tree";
+import { setsConfigOf } from "@/lib/competition/sets";
 import { StandingsTables } from "@/components/competition/standings-tables";
 import { AutoRefresh } from "@/components/public/auto-refresh";
 import { MatchCard } from "@/components/public/match-card";
@@ -59,13 +60,16 @@ export default async function PublicEventPage({
     .reverse();
 
   const rules = standingsRules(event);
+  const bySets = setsConfigOf(event.rules) !== null;
   const league: {
     stage: string;
     tables: Awaited<ReturnType<typeof runTables>>;
     advancing: number | null;
   }[] = [];
   if (rules && selected) {
-    for (const stage of event.stages.filter((s) => s.type !== "SINGLE_ELIM")) {
+    for (const stage of event.stages.filter(
+      (s) => s.type !== "SINGLE_ELIM" && s.type !== "DOUBLE_ELIM",
+    )) {
       const run = await getRunDetail(stage.id, selected.id);
       if (run && run.matches.length)
         league.push({
@@ -173,6 +177,7 @@ export default async function PublicEventPage({
             tables={l.tables.tables}
             ignored={[]}
             qualify={l.advancing}
+            bySets={bySets}
           />
         </section>
       ))}

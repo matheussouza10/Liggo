@@ -1,3 +1,5 @@
+import { seriesConfigOf } from "@/lib/competition/series";
+import { setsConfigOf } from "@/lib/competition/sets";
 import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -116,7 +118,13 @@ export default async function StagePage({
           eventId={event.id}
           stage={{
             id: stage.id,
-            type: stage.type as "ROUND_ROBIN" | "GROUPS" | "SINGLE_ELIM",
+            type: stage.type as
+              | "ROUND_ROBIN"
+              | "GROUPS"
+              | "SINGLE_ELIM"
+              | "DOUBLE_ELIM"
+              | "SWISS",
+            swissRounds: stage.swissRounds,
             advancingPerGroup: stage.advancingPerGroup,
             seeding: stage.seeding,
           }}
@@ -127,6 +135,12 @@ export default async function StagePage({
             .filter((r) => r.role === "REFEREE")
             .map((r) => ({ id: r.id, name: r.name }))}
           penalties={event.rules.penalties}
+          setsConfig={setsConfigOf(event.rules)}
+          series={
+            stage.type === "SINGLE_ELIM" || stage.type === "DOUBLE_ELIM"
+              ? seriesConfigOf(event.rules)
+              : null
+          }
           eventStart={event.startDate.toISOString().slice(0, 10)}
           isFirstStage={stageIndex === 0}
           hasNextStage={stageIndex < event.stages.length - 1}

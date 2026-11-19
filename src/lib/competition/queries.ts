@@ -10,6 +10,8 @@ export const SUPPORTED_STAGE_TYPES = [
   "ROUND_ROBIN",
   "GROUPS",
   "SINGLE_ELIM",
+  "DOUBLE_ELIM",
+  "SWISS",
 ] as const;
 export const isSupportedStage = (type: string) =>
   (SUPPORTED_STAGE_TYPES as readonly string[]).includes(type);
@@ -48,7 +50,11 @@ export function getRunDetail(stageId: string, categoryId: string) {
       },
       matches: {
         orderBy: [{ round: "asc" }, { position: "asc" }],
-        include: { referee: { select: { id: true, name: true } } },
+        include: {
+          referee: { select: { id: true, name: true } },
+          sets: { orderBy: { number: "asc" } },
+          games: { orderBy: { number: "asc" } },
+        },
       },
     },
   });

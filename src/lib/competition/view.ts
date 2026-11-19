@@ -30,6 +30,10 @@ export type MatchView = {
   awayScore: number | null;
   homePenalties: number | null;
   awayPenalties: number | null;
+  /** Score of each set, when the sport is scored by sets. */
+  sets: { home: number; away: number }[];
+  /** Games of a tie played as a series (best of N or two legs). */
+  games: { home: number; away: number }[];
   winnerId: string | null;
   scheduledAt: string | null;
   venue: string | null;
@@ -73,6 +77,8 @@ export function toRunView(
     awayScore: m.awayScore,
     homePenalties: m.homePenalties,
     awayPenalties: m.awayPenalties,
+    sets: m.sets.map((x) => ({ home: x.homePoints, away: x.awayPoints })),
+    games: m.games.map((x) => ({ home: x.homeScore, away: x.awayScore })),
     winnerId: m.winnerEntryId,
     scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
     venue: m.venue,
@@ -81,7 +87,7 @@ export function toRunView(
   }));
   const final = matches.find((m) => m.label === "Final");
   const champion =
-    stageType === "SINGLE_ELIM"
+    stageType === "SINGLE_ELIM" || stageType === "DOUBLE_ELIM"
       ? final?.winnerId
         ? (names.get(final.winnerId) ?? null)
         : null

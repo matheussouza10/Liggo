@@ -5,6 +5,8 @@ import { z } from "zod";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { EVENT_META, MATCH_EVENT_TYPES, scoreDelta } from "./live";
+import { seriesConfigOf } from "./series";
+import { liveState, setsConfigOf } from "./sets";
 
 export type LiveResult = { ok: true } | { ok: false; error: string };
 const fail = (error: string): LiveResult => ({ ok: false, error });
@@ -69,6 +71,38 @@ export async function startMatchAction(
     return fail("Este jogo ainda não tem os dois participantes.");
   if (match.status !== "SCHEDULED") return fail("Este jogo já foi encerrado.");
   if (match.startedAt) return fail("Este jogo já foi iniciado.");
+  // A tie played over several games is scored game by game, not live.
+  const tie = await prisma.match.findUnique({
+    where: { id: match.id },
+    select: {
+      stageRun: {
+        select: {
+          stage: {
+            select: {
+              type: true,
+              event: {
+                select: {
+                  rules: {
+                    select: {
+                      matchFormat: true,
+                      bestOf: true,
+                      awayGoals: true,
+                      penalties: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  const stage = tie?.stageRun.stage;
+  if (stage?.type === "SINGLE_ELIM" && seriesConfigOf(stage.event.rules))
+    return fail(
+      "Neste formato o confronto tem vários jogos: lance o placar de cada jogo em Resultado.",
+    );
 
   await prisma.$transaction([
     prisma.match.update({
@@ -106,6 +140,85 @@ const eventSchema = z.object({
   text: z.string().trim().max(160, "Use no máximo 160 caracteres."),
 });
 
+/**
+ * Point by point, for sports scored by sets. Adds (+1) or takes back (-1) a
+ * point of one side in the set being played; a set closes by itself when won,
+ * and the sets won become the live score.
+ */
+export async function scoreSetPointAction(
+  eventId: string,
+  matchId: string,
+  side: "HOME" | "AWAY",
+  delta: 1 | -1,
+): Promise<LiveResult> {
+  const ctx = await ownMatch(eventId, matchId);
+  if (!ctx) return fail("Jogo não encontrado.");
+  const { match } = ctx;
+  if (!isLive(match))
+    return fail(
+      "Só é possível marcar pontos em um jogo ao vivo. Inicie o jogo primeiro.",
+    );
+  if ((side !== "HOME" && side !== "AWAY") || (delta !== 1 && delta !== -1))
+    return fail("Ponto inválido.");
+  const rules = await prisma.eventRules.findUnique({
+    where: { eventId },
+    select: { scoringModel: true, sportConfig: true },
+  });
+  const config = setsConfigOf(rules);
+  if (!config) return fail("Este evento não é pontuado por sets.");
+
+  const rows = await prisma.matchSet.findMany({
+    where: { matchId },
+    orderBy: { number: "asc" },
+  });
+  const state = liveState(
+    config,
+    rows.map((r) => ({ home: r.homePoints, away: r.awayPoints })),
+  );
+  const list = state.finished.map((x) => ({ ...x }));
+  if (state.current.home + state.current.away > 0)
+    list.push({ ...state.current });
+  const key = side === "HOME" ? "home" : "away";
+
+  if (delta === 1) {
+    if (state.complete)
+      return fail(
+        "O jogo já tem vencedor. Confirme o resultado ou desfaça o último ponto.",
+      );
+    if (state.current.home + state.current.away > 0)
+      list[list.length - 1][key]++;
+    else
+      list.push({ home: 0, away: 0, [key]: 1 } as {
+        home: number;
+        away: number;
+      });
+  } else {
+    const last = list[list.length - 1];
+    if (!last || last[key] === 0)
+      return fail("Não há ponto para desfazer desse lado.");
+    last[key]--;
+    if (last.home + last.away === 0) list.pop();
+  }
+
+  const next = liveState(config, list);
+  await prisma.$transaction([
+    prisma.matchSet.deleteMany({ where: { matchId } }),
+    prisma.matchSet.createMany({
+      data: list.map((x, i) => ({
+        matchId,
+        number: i + 1,
+        homePoints: x.home,
+        awayPoints: x.away,
+      })),
+    }),
+    prisma.match.update({
+      where: { id: matchId },
+      data: { liveHome: next.homeSets, liveAway: next.awaySets },
+    }),
+  ]);
+  return refresh(eventId, matchId);
+}
+
 export async function addMatchEventAction(
   eventId: string,
   matchId: string,
@@ -123,6 +236,17 @@ export async function addMatchEventAction(
   if (!parsed.success)
     return fail(parsed.error.issues[0]?.message ?? "Lance inválido.");
   const e = parsed.data;
+  // In sports scored by sets the score comes from the sets, not from lances.
+  if (EVENT_META[e.type].scores) {
+    const r = await prisma.eventRules.findUnique({
+      where: { eventId },
+      select: { scoringModel: true, sportConfig: true },
+    });
+    if (setsConfigOf(r))
+      return fail(
+        "Neste esporte o placar vem dos sets. Marque os pontos no painel de sets.",
+      );
+  }
   const meta = EVENT_META[e.type];
   if (!meta.manual)
     return fail("Esse lance é lançado pelos botões de início e fim do jogo.");

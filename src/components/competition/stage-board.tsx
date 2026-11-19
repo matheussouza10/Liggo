@@ -1,6 +1,11 @@
 "use client";
 
-import { CheckCheckIcon, TrophyIcon, Undo2Icon } from "lucide-react";
+import {
+  CheckCheckIcon,
+  SwordsIcon,
+  TrophyIcon,
+  Undo2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -8,8 +13,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   completeStageAction,
+  generateNextRoundAction,
   resetMatchesAction,
 } from "@/lib/competition/actions";
+import type { SeriesConfig } from "@/lib/competition/series";
+import type { SetsConfig } from "@/lib/competition/sets";
 import type { DrawEntryProps } from "@/lib/competition/types";
 import type { MatchView, RunView } from "@/lib/competition/view";
 import { BracketView } from "./bracket-view";
@@ -30,6 +38,8 @@ export function StageBoard({
   candidates,
   referees,
   penalties,
+  setsConfig,
+  series,
   eventStart,
   isFirstStage,
   hasNextStage,
@@ -38,7 +48,8 @@ export function StageBoard({
   eventId: string;
   stage: {
     id: string;
-    type: "ROUND_ROBIN" | "GROUPS" | "SINGLE_ELIM";
+    type: "ROUND_ROBIN" | "GROUPS" | "SINGLE_ELIM" | "DOUBLE_ELIM" | "SWISS";
+    swissRounds: number | null;
     advancingPerGroup: number | null;
     seeding: DrawEntryProps["defaultMode"];
   };
@@ -47,12 +58,15 @@ export function StageBoard({
   candidates: DrawEntryProps["candidates"];
   referees: { id: string; name: string }[];
   penalties: boolean;
+  setsConfig: SetsConfig | null;
+  series: SeriesConfig | null;
   eventStart: string;
   isFirstStage: boolean;
   hasNextStage: boolean;
   pairingsConfig?: React.ReactNode;
 }) {
-  const knockout = stage.type === "SINGLE_ELIM";
+  const double = stage.type === "DOUBLE_ELIM";
+  const knockout = stage.type === "SINGLE_ELIM" || double;
   const isGroups = stage.type === "GROUPS";
   const hasMatches = !!view && view.matches.length > 0;
   const [tab, setTab] = useState<Tab>(hasMatches ? "matches" : "participants");
@@ -71,6 +85,13 @@ export function StageBoard({
   const awaitingData = pendingSig !== null && signature(view) === pendingSig;
   const revealing = pendingSig !== null && !!view && !awaitingData;
   const { pending, error, run } = useAction();
+  const swiss = stage.type === "SWISS";
+  // Swiss: rounds are generated one at a time, from the standings.
+  const currentRound = view?.matches.length
+    ? Math.max(...view.matches.map((m) => m.round))
+    : 0;
+  const totalRounds = stage.swissRounds ?? 0;
+  const allRoundsGenerated = !swiss || currentRound >= totalRounds;
 
   const live = view?.status === "LIVE";
   const allPlayed =
@@ -154,7 +175,7 @@ export function StageBoard({
                 Jogos
               </TabsTrigger>
             ) : null}
-            {hasMatches ? (
+            {hasMatches && !double ? (
               <TabsTrigger value="table" className="px-4 py-2">
                 {knockout ? "Chave" : "Classificação"}
               </TabsTrigger>
@@ -183,6 +204,8 @@ export function StageBoard({
                 referees={referees}
                 knockout={knockout}
                 penalties={penalties}
+                setsConfig={setsConfig}
+                series={series}
                 live={!!live}
                 eventStart={eventStart}
                 openMatch={bracketMatch}
@@ -191,7 +214,7 @@ export function StageBoard({
             </TabsContent>
           ) : null}
 
-          {hasMatches ? (
+          {hasMatches && !double ? (
             <TabsContent value="table" className="pt-4">
               {knockout ? (
                 <BracketView
@@ -207,6 +230,7 @@ export function StageBoard({
                   tables={view.tables}
                   ignored={view.ignored}
                   qualify={hasNextStage ? stage.advancingPerGroup : null}
+                  bySets={!!setsConfig}
                 />
               )}
             </TabsContent>
@@ -226,7 +250,7 @@ export function StageBoard({
             type="button"
             size="lg"
             className="h-11 px-5"
-            disabled={!allPlayed || pending}
+            disabled={!allPlayed || !allRoundsGenerated || pending}
             onClick={() => run(() => completeStageAction(eventId, view.id))}
           >
             {pending ? (
@@ -236,6 +260,33 @@ export function StageBoard({
             )}
             {hasNextStage ? "Concluir fase e avançar" : "Concluir fase"}
           </Button>
+          {swiss && allPlayed && !allRoundsGenerated ? (
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="h-11 px-5"
+              disabled={pending}
+              onClick={() =>
+                run(() => generateNextRoundAction(eventId, view.id))
+              }
+            >
+              {pending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <SwordsIcon data-icon="inline-start" />
+              )}
+              Gerar próxima rodada
+            </Button>
+          ) : null}
+          {swiss ? (
+            <span
+              className="text-sm text-muted-foreground"
+              data-testid="swiss-progress"
+            >
+              Rodada {currentRound} de {totalRounds}
+            </span>
+          ) : null}
           {!allPlayed ? (
             <span className="text-sm text-muted-foreground">
               Faltam resultados para concluir.

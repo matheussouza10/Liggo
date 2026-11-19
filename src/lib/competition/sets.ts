@@ -177,3 +177,25 @@ export function ratio(gained: number, lost: number): number {
   if (lost === 0) return gained === 0 ? 0 : Number.POSITIVE_INFINITY;
   return Math.round((gained / lost) * 1e9) / 1e9;
 }
+
+/** The sets configuration of the event rules, when the sport is scored by sets. */
+export function setsConfigOf(
+  rules: { scoringModel: string; sportConfig: unknown } | null | undefined,
+): SetsConfig | null {
+  if (!rules || rules.scoringModel !== "SETS") return null;
+  const c = rules.sportConfig as
+    (Partial<SetsConfig> & { kind?: string }) | null;
+  if (!c || c.kind !== "SETS") return null;
+  if (
+    typeof c.setsToWin !== "number" ||
+    typeof c.pointsPerSet !== "number" ||
+    typeof c.decidingSetPoints !== "number"
+  )
+    return null;
+  return {
+    setsToWin: c.setsToWin,
+    pointsPerSet: c.pointsPerSet,
+    decidingSetPoints: c.decidingSetPoints,
+    winByTwo: c.winByTwo === true,
+  };
+}

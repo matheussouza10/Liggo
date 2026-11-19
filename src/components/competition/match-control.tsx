@@ -42,6 +42,7 @@ import {
   deleteMatchEventAction,
   resetLiveAction,
   setPossessionAction,
+  scoreSetPointAction,
   startMatchAction,
   type LiveResult,
 } from "@/lib/competition/live-actions";
@@ -57,6 +58,8 @@ import type { MatchView } from "@/lib/competition/view";
 import { cn } from "@/lib/utils";
 import { MatchStatsPanel } from "@/components/stats/match-stats-panel";
 import { EventIcon } from "./event-icon";
+import type { SetsConfig } from "@/lib/competition/sets";
+import { liveState } from "@/lib/competition/sets";
 import { ResultDialog } from "./matches-panel";
 import { useAction } from "./use-action";
 
@@ -88,6 +91,7 @@ export function MatchControl({
   ready,
   knockout,
   penalties,
+  setsConfig,
 }: {
   eventId: string;
   snapshot: MatchSnapshot;
@@ -97,6 +101,7 @@ export function MatchControl({
   ready: boolean;
   knockout: boolean;
   penalties: boolean;
+  setsConfig: SetsConfig | null;
 }) {
   const s = snapshot;
   const live = s.state === "LIVE";
@@ -126,6 +131,8 @@ export function MatchControl({
     round: 0,
     position: 0,
     label: s.label,
+    sets: s.sets,
+    games: [],
     homeId: "home",
     awayId: "away",
     homeName: s.home,
@@ -236,6 +243,20 @@ export function MatchControl({
         </section>
       ) : null}
 
+      {live && setsConfig ? (
+        <SetsScoreboard
+          config={setsConfig}
+          sets={s.sets}
+          home={s.home ?? "Mandante"}
+          away={s.away ?? "Visitante"}
+          pending={pending}
+          onPoint={(side, delta) =>
+            call(() => scoreSetPointAction(eventId, s.id, side, delta))
+          }
+          onFinish={() => setFinishing(true)}
+        />
+      ) : null}
+
       {live ? (
         <section aria-label="Lançar lance" className="flex flex-col gap-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -245,7 +266,9 @@ export function MatchControl({
                   {side === "HOME" ? s.home : s.away}
                 </h3>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  {SIDE_BUTTONS.map((type) => (
+                  {SIDE_BUTTONS.filter(
+                    (type) => !setsConfig || !EVENT_META[type].scores,
+                  ).map((type) => (
                     <Button
                       key={type}
                       type="button"
@@ -391,6 +414,8 @@ export function MatchControl({
           match={asView}
           knockout={knockout}
           penalties={penalties}
+          setsConfig={setsConfig}
+          series={null}
           onClose={() => setFinishing(false)}
         />
       ) : null}
@@ -701,6 +726,97 @@ function PossessionControl({
           </Button>
         ) : null}
       </div>
+    </section>
+  );
+}
+
+/** Point by point for sports scored by sets: big buttons for the table, the set closes by itself. */
+function SetsScoreboard({
+  config,
+  sets,
+  home,
+  away,
+  pending,
+  onPoint,
+  onFinish,
+}: {
+  config: SetsConfig;
+  sets: { home: number; away: number }[];
+  home: string;
+  away: string;
+  pending: boolean;
+  onPoint: (side: "HOME" | "AWAY", delta: 1 | -1) => void;
+  onFinish: () => void;
+}) {
+  const st = liveState(config, sets);
+  const shown = st.complete ? st.finished.at(-1) : st.current;
+  const number = st.complete ? st.finished.length : st.finished.length + 1;
+  return (
+    <section
+      aria-label="Sets"
+      className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
+          Set {number}
+        </h2>
+        <p className="text-sm text-muted-foreground" data-testid="set-target">
+          {st.complete
+            ? "Jogo decidido"
+            : `Set a ${st.target} pontos${config.winByTwo ? ", com 2 de diferença" : ""}`}
+        </p>
+      </div>
+      <p
+        data-testid="set-score"
+        className="text-center font-display text-6xl leading-none font-extrabold tabular-nums sm:text-7xl"
+      >
+        {shown?.home ?? 0} <span className="text-muted-foreground">x</span>{" "}
+        {shown?.away ?? 0}
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {(["HOME", "AWAY"] as const).map((side) => (
+          <div key={side} className="flex flex-col gap-2">
+            <Button
+              type="button"
+              size="lg"
+              className="h-16 text-lg"
+              disabled={pending || st.complete}
+              onClick={() => onPoint(side, 1)}
+              aria-label={`Ponto para ${side === "HOME" ? home : away}`}
+            >
+              +1 {side === "HOME" ? home : away}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => onPoint(side, -1)}
+              aria-label={`Desfazer ponto de ${side === "HOME" ? home : away}`}
+            >
+              Desfazer ponto
+            </Button>
+          </div>
+        ))}
+      </div>
+      <p
+        className="text-center text-sm text-muted-foreground"
+        data-testid="sets-summary"
+      >
+        Sets: {st.homeSets} x {st.awaySets}
+        {st.finished.length
+          ? ` · ${st.finished.map((x) => `${x.home}-${x.away}`).join(" · ")}`
+          : ""}
+      </p>
+      {st.complete ? (
+        <Button
+          type="button"
+          size="lg"
+          className="h-11 self-center px-6"
+          onClick={onFinish}
+        >
+          Confirmar resultado
+        </Button>
+      ) : null}
     </section>
   );
 }

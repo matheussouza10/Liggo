@@ -690,6 +690,7 @@ model Match {
   referee  Referee?     @relation(fields: [refereeId], references: [id], onDelete: SetNull)
   events   MatchEvent[]
   sets     MatchSet[]
+  games    MatchGame[]
 
   @@index([stageRunId, round, position])
   @@index([refereeId, scheduledAt])
@@ -888,4 +889,19 @@ model MatchSet {
 
   @@unique([matchId, number])
   @@map("match_sets")
+}
+
+/// One game of a knockout tie played over several games (best of N or two legs).
+/// Scores are from the point of view of the tie's home side, whichever venue hosted the game.
+model MatchGame {
+  id        String @id @default(cuid())
+  matchId   String
+  number    Int
+  homeScore Int
+  awayScore Int
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, number])
+  @@map("match_games")
 }

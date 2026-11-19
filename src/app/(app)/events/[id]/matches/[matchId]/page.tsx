@@ -1,3 +1,4 @@
+import { setsConfigOf } from "@/lib/competition/sets";
 import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -24,7 +25,7 @@ export default async function MatchPage({
   if (!data) notFound();
   const rules = await prisma.eventRules.findUnique({
     where: { eventId: id },
-    select: { penalties: true },
+    select: { penalties: true, scoringModel: true, sportConfig: true },
   });
 
   return (
@@ -50,6 +51,7 @@ export default async function MatchPage({
         ready={data.ready}
         knockout={data.knockout}
         penalties={rules?.penalties ?? false}
+        setsConfig={setsConfigOf(rules)}
       />
     </div>
   );

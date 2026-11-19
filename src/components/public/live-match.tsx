@@ -155,6 +155,14 @@ export function LiveMatch({ initial }: { initial: MatchSnapshot }) {
             {m.away ?? "A definir"}
           </p>
         </div>
+        {m.sets.length ? (
+          <p
+            data-testid="public-sets"
+            className="mt-3 text-center text-sm text-muted-foreground tabular-nums"
+          >
+            Sets: {m.sets.map((x) => `${x.home}-${x.away}`).join(" · ")}
+          </p>
+        ) : null}
         {m.penaltiesHome != null && m.penaltiesAway != null ? (
           <p className="mt-3 text-center text-sm text-muted-foreground">
             Pênaltis: {m.penaltiesHome} x {m.penaltiesAway}

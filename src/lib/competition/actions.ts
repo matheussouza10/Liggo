@@ -1,5 +1,12 @@
 "use server";
 
+import {
+  buildDoubleElimination,
+  canBuildDoubleElimination,
+} from "./double-elim";
+import { evaluateSets, setsConfigOf } from "./sets";
+import { maxSwissRounds, pairSwiss } from "./swiss";
+import { evaluateSeries, seriesConfigOf } from "./series";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -292,7 +299,7 @@ export async function savePairingsAction(
   const ctx = await loadRun(eventId, runId);
   if (!ctx) return fail("Fase não encontrada.");
   const { run } = ctx;
-  if (run.stage.type !== "SINGLE_ELIM")
+  if (run.stage.type !== "SINGLE_ELIM" && run.stage.type !== "DOUBLE_ELIM")
     return fail("Só o mata-mata tem confrontos para escolher.");
   if (run.status !== "DRAWN")
     return fail(
@@ -411,7 +418,7 @@ export async function generateMatchesAction(
   const entries = await prisma.stageEntry.findMany({
     where: { stageRunId: run.id },
     orderBy: { position: "asc" },
-    select: { id: true, groupId: true },
+    select: { id: true, groupId: true, seed: true },
   });
   type NewMatch = {
     id: string;
@@ -467,25 +474,68 @@ export async function generateMatchesAction(
         return fail(`${g.name} precisa de pelo menos 2 participantes.`);
       league(ids, g.id);
     }
-  } else if (stage.type === "SINGLE_ELIM") {
-    if (event.rules.matchFormat !== "SINGLE")
+  } else if (stage.type === "SWISS") {
+    // Round one now; the next rounds are generated one at a time from the standings.
+    const rounds = stage.swissRounds ?? 0;
+    if (rounds < 1)
+      return fail("Informe o número de rodadas nas regras desta fase.");
+    if (entries.length % 2 !== 0)
       return fail(
-        "O mata-mata só suporta jogo único por enquanto. Ajuste o formato do confronto nas regras.",
+        `O sistema suíço precisa de um número par de participantes (são ${entries.length}).`,
       );
+    if (rounds > maxSwissRounds(entries.length))
+      return fail(
+        `Com ${entries.length} participantes o máximo é ${maxSwissRounds(entries.length)} rodadas, para ninguém repetir adversário.`,
+      );
+    const first = pairSwiss(
+      entries.map((e, i) => ({
+        id: e.id,
+        points: 0,
+        rank: e.seed ?? i + 1,
+        played: new Set<string>(),
+      })),
+    );
+    if ("error" in first) return fail(first.error);
+    first.pairs.forEach((p, i) =>
+      data.push({
+        id: randomUUID(),
+        stageRunId: run.id,
+        groupId: null,
+        round: 1,
+        position: i,
+        label: "Rodada 1",
+        homeEntryId: p.home,
+        awayEntryId: p.away,
+      }),
+    );
+  } else if (stage.type === "SINGLE_ELIM" || stage.type === "DOUBLE_ELIM") {
     const index = event.stages.findIndex((s) => s.id === stage.id);
     const adjacent =
       event.stages[index - 1]?.type === "SINGLE_ELIM" || run.manualPairing;
     const roundOnly = event.stages[index + 1]?.type === "SINGLE_ELIM";
     const order = entries.map((e) => e.id);
+    const double = stage.type === "DOUBLE_ELIM";
+    if (double) {
+      if (!canBuildDoubleElimination(order.length))
+        return fail(
+          `A dupla eliminação precisa de 4, 8, 16 ou 32 participantes (são ${order.length}). Ajuste as inscrições ou use outro formato.`,
+        );
+      if (stage.grandFinalMode !== "SINGLE")
+        return fail(
+          "Por enquanto a dupla eliminação só suporta a final única. Escolha Final única nas regras da fase.",
+        );
+    }
 
     // A knockout followed by another knockout is one round only (for example
     // "Quartas", "Semifinal" and "Final" as separate stages).
-    const plan = roundOnly
-      ? (() => {
-          const r = planRound(order, stage.thirdPlaceMatch, { adjacent });
-          return [...r.matches, ...(r.third ? [r.third] : [])];
-        })()
-      : buildSingleElimination(order, stage.thirdPlaceMatch, { adjacent });
+    const plan = double
+      ? buildDoubleElimination(order, { adjacent: run.manualPairing })
+      : roundOnly
+        ? (() => {
+            const r = planRound(order, stage.thirdPlaceMatch, { adjacent });
+            return [...r.matches, ...(r.third ? [r.third] : [])];
+          })()
+        : buildSingleElimination(order, stage.thirdPlaceMatch, { adjacent });
     const ids = new Map(plan.map((m) => [m.key, randomUUID()]));
     for (const m of plan) {
       data.push({
@@ -582,10 +632,33 @@ const resultSchema = z
     homePenalties: z.number().int().min(0).max(99).nullable(),
     awayPenalties: z.number().int().min(0).max(99).nullable(),
     walkover: z.enum(["HOME", "AWAY"]).nullable(),
+    /** Score of each set (scoring by sets only). */
+    sets: z
+      .array(
+        z.object({
+          home: z.number().int().min(0).max(999),
+          away: z.number().int().min(0).max(999),
+        }),
+      )
+      .max(9)
+      .optional(),
+    /** Games of a knockout tie played as a series (best of N or two legs). */
+    games: z
+      .array(
+        z.object({
+          home: z.number().int().min(0).max(999),
+          away: z.number().int().min(0).max(999),
+        }),
+      )
+      .max(9)
+      .optional(),
   })
   .refine(
     (r) =>
-      r.walkover !== null || (r.homeScore !== null && r.awayScore !== null),
+      r.walkover !== null ||
+      (r.sets?.length ?? 0) > 0 ||
+      (r.games?.length ?? 0) > 0 ||
+      (r.homeScore !== null && r.awayScore !== null),
     { message: "Informe o placar dos dois lados." },
   );
 
@@ -620,7 +693,11 @@ export async function saveResultAction(
   if (!parsed.success)
     return fail(parsed.error.issues[0]?.message ?? "Resultado inválido.");
   const r = parsed.data;
-  const knockout = match.stageRun.stage.type === "SINGLE_ELIM";
+  const knockout =
+    match.stageRun.stage.type === "SINGLE_ELIM" ||
+    match.stageRun.stage.type === "DOUBLE_ELIM";
+  const setsConfig = setsConfigOf(rules);
+  const series = knockout ? seriesConfigOf(rules) : null;
 
   if (playedStatuses.includes(match.status)) {
     const downstream = [match.nextMatchId, match.loserMatchId].filter(
@@ -646,6 +723,52 @@ export async function saveResultAction(
     homeScore = r.walkover === "HOME" ? rules.woScoreFor : rules.woScoreAgainst;
     awayScore = r.walkover === "AWAY" ? rules.woScoreFor : rules.woScoreAgainst;
     winner = r.walkover === "HOME" ? match.homeEntryId : match.awayEntryId;
+  } else if (series) {
+    // A tie over several games: the games decide the score and the winner.
+    const games = r.games ?? [];
+    const pens =
+      r.homePenalties != null && r.awayPenalties != null
+        ? { home: r.homePenalties, away: r.awayPenalties }
+        : null;
+    const out = evaluateSeries(series, games, pens);
+    if (out.error) return fail(out.error);
+    if (!out.complete) {
+      // Not decided yet: keep the games played so far and leave the tie open.
+      if (playedStatuses.includes(match.status))
+        return fail(
+          "Este confronto já foi decidido. Limpe o resultado antes de reabrir a série.",
+        );
+      await prisma.$transaction([
+        prisma.matchGame.deleteMany({ where: { matchId: match.id } }),
+        prisma.matchGame.createMany({
+          data: games.map((g, i) => ({
+            matchId: match.id,
+            number: i + 1,
+            homeScore: g.home,
+            awayScore: g.away,
+          })),
+        }),
+      ]);
+      return refresh(eventId);
+    }
+    homeScore = out.homeScore;
+    awayScore = out.awayScore;
+    winner = out.winner === "HOME" ? match.homeEntryId : match.awayEntryId;
+    if (out.decidedBy === "PENALTIES" && pens) {
+      homePen = pens.home;
+      awayPen = pens.away;
+    }
+  } else if (setsConfig) {
+    // Scored by sets: the sets decide the score and the winner, never a draw.
+    const outcome = evaluateSets(setsConfig, r.sets ?? []);
+    if (outcome.error) return fail(outcome.error);
+    if (!outcome.complete)
+      return fail(
+        `O jogo ainda não tem vencedor: são necessários ${setsConfig.setsToWin} sets.`,
+      );
+    homeScore = outcome.homeSets;
+    awayScore = outcome.awaySets;
+    winner = outcome.winner === "HOME" ? match.homeEntryId : match.awayEntryId;
   } else {
     homeScore = r.homeScore as number;
     awayScore = r.awayScore as number;
@@ -685,6 +808,29 @@ export async function saveResultAction(
         winnerEntryId: winner,
       },
     });
+    // The sets of a corrected result replace the old ones.
+    await tx.matchGame.deleteMany({ where: { matchId: match.id } });
+    if (series && !r.walkover && r.games?.length) {
+      await tx.matchGame.createMany({
+        data: r.games.map((g, i) => ({
+          matchId: match.id,
+          number: i + 1,
+          homeScore: g.home,
+          awayScore: g.away,
+        })),
+      });
+    }
+    await tx.matchSet.deleteMany({ where: { matchId: match.id } });
+    if (setsConfig && !r.walkover && r.sets?.length) {
+      await tx.matchSet.createMany({
+        data: r.sets.map((x, i) => ({
+          matchId: match.id,
+          number: i + 1,
+          homePoints: x.home,
+          awayPoints: x.away,
+        })),
+      });
+    }
     if (knockout && winner) {
       if (match.nextMatchId && match.nextSlot) {
         await tx.match.update({
@@ -738,8 +884,15 @@ export async function clearResultAction(
   const { match } = ctx;
   if (match.stageRun.status !== "LIVE")
     return fail("A fase não está em andamento.");
-  if (!playedStatuses.includes(match.status))
-    return fail("Este jogo não tem resultado.");
+  if (!playedStatuses.includes(match.status)) {
+    // A series in progress has games saved but no result yet.
+    const saved = await prisma.matchGame.count({
+      where: { matchId: match.id },
+    });
+    if (saved === 0) return fail("Este jogo não tem resultado.");
+    await prisma.matchGame.deleteMany({ where: { matchId: match.id } });
+    return refresh(eventId);
+  }
   const downstream = [match.nextMatchId, match.loserMatchId].filter(
     (x): x is string => !!x,
   );
@@ -758,6 +911,8 @@ export async function clearResultAction(
     await tx.matchEvent.deleteMany({
       where: { matchId: match.id, type: "FULL_TIME" },
     });
+    await tx.matchSet.deleteMany({ where: { matchId: match.id } });
+    await tx.matchGame.deleteMany({ where: { matchId: match.id } });
     await tx.match.update({
       where: { id: match.id },
       data: {
@@ -791,6 +946,69 @@ export async function clearResultAction(
 
 // ---------------------------------------------------------------- advance
 
+/**
+ * Swiss system: pairs the next round from the standings, once every game of
+ * the current round has a result. Nobody faces the same opponent twice.
+ */
+export async function generateNextRoundAction(
+  eventId: string,
+  runId: string,
+): Promise<ActionResult> {
+  const ctx = await loadRun(eventId, runId);
+  if (!ctx) return fail("Fase não encontrada.");
+  const { run, event } = ctx;
+  const { stage } = run;
+  if (stage.type !== "SWISS")
+    return fail("Só o sistema suíço gera rodadas aos poucos.");
+  if (run.status !== "LIVE") return fail("A fase não está em andamento.");
+  const detail = await getRunDetail(run.stageId, run.categoryId);
+  if (!detail || detail.matches.length === 0)
+    return fail("Gere os jogos da fase primeiro.");
+  const current = Math.max(...detail.matches.map((m) => m.round));
+  if (current >= (stage.swissRounds ?? 0))
+    return fail("Todas as rodadas já foram geradas.");
+  if (
+    detail.matches.some((m) => m.round === current && m.status === "SCHEDULED")
+  )
+    return fail(`Faltam resultados da rodada ${current}.`);
+  const rules = standingsRules(event);
+  if (!rules) return fail("O evento não tem regras.");
+
+  const { tables } = runTables(detail, rules);
+  const rows = tables[0]?.rows ?? [];
+  const faced = new Map<string, Set<string>>(
+    detail.entries.map((e) => [e.id, new Set<string>()]),
+  );
+  for (const m of detail.matches) {
+    if (m.homeEntryId && m.awayEntryId) {
+      faced.get(m.homeEntryId)?.add(m.awayEntryId);
+      faced.get(m.awayEntryId)?.add(m.homeEntryId);
+    }
+  }
+  const result = pairSwiss(
+    rows.map((r) => ({
+      id: r.id,
+      points: r.points,
+      rank: r.position,
+      played: faced.get(r.id) ?? new Set<string>(),
+    })),
+  );
+  if ("error" in result) return fail(result.error);
+
+  await prisma.match.createMany({
+    data: result.pairs.map((p, i) => ({
+      stageRunId: run.id,
+      groupId: null,
+      round: current + 1,
+      position: i,
+      label: `Rodada ${current + 1}`,
+      homeEntryId: p.home,
+      awayEntryId: p.away,
+    })),
+  });
+  return refresh(eventId);
+}
+
 export async function completeStageAction(
   eventId: string,
   runId: string,
@@ -809,6 +1027,14 @@ export async function completeStageAction(
   )
     return fail("Ainda há jogos sem resultado.");
 
+  if (stage.type === "SWISS") {
+    const played = Math.max(...detail.matches.map((m) => m.round));
+    if (played < (stage.swissRounds ?? 0))
+      return fail(
+        `Gere todas as rodadas antes de concluir (jogadas ${played} de ${stage.swissRounds}).`,
+      );
+  }
+
   const next = event.stages.find((s) => s.order === stage.order + 1);
   if (!next) {
     await prisma.stageRun.update({
@@ -817,6 +1043,8 @@ export async function completeStageAction(
     });
     return refresh(eventId);
   }
+  if (stage.type === "DOUBLE_ELIM")
+    return fail("A dupla eliminação deve ser a última fase do evento.");
   if (!isSupportedStage(next.type))
     return fail("A fase seguinte ainda não está disponível.");
   const regOf = new Map(detail.entries.map((e) => [e.id, e.registrationId]));

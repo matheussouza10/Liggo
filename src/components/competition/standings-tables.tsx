@@ -15,10 +15,13 @@ export function StandingsTables({
   tables,
   ignored,
   qualify,
+  bySets = false,
 }: {
   tables: TableView[];
   ignored: string[];
   qualify: number | null;
+  /** Scored by sets: show sets and points instead of draws and goal difference. */
+  bySets?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -63,15 +66,34 @@ export function StandingsTables({
                   <TableHead className="w-10 text-right" title="Vitórias">
                     V
                   </TableHead>
-                  <TableHead className="w-10 text-right" title="Empates">
-                    E
-                  </TableHead>
+                  {bySets ? null : (
+                    <TableHead className="w-10 text-right" title="Empates">
+                      E
+                    </TableHead>
+                  )}
                   <TableHead className="w-10 text-right" title="Derrotas">
                     D
                   </TableHead>
-                  <TableHead className="w-14 text-right" title="Saldo">
-                    SG
-                  </TableHead>
+                  {bySets ? (
+                    <>
+                      <TableHead
+                        className="w-16 text-right"
+                        title="Sets ganhos e perdidos"
+                      >
+                        Sets
+                      </TableHead>
+                      <TableHead
+                        className="w-20 text-right"
+                        title="Pontos marcados e sofridos"
+                      >
+                        Pontos
+                      </TableHead>
+                    </>
+                  ) : (
+                    <TableHead className="w-14 text-right" title="Saldo">
+                      SG
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -98,15 +120,28 @@ export function StandingsTables({
                     <TableCell className="text-right tabular-nums">
                       {r.wins}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.draws}
-                    </TableCell>
+                    {bySets ? null : (
+                      <TableCell className="text-right tabular-nums">
+                        {r.draws}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right tabular-nums">
                       {r.losses}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.diff > 0 ? `+${r.diff}` : r.diff}
-                    </TableCell>
+                    {bySets ? (
+                      <>
+                        <TableCell className="text-right tabular-nums">
+                          {r.scoreFor}:{r.scoreAgainst}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {r.pointsFor}:{r.pointsAgainst}
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell className="text-right tabular-nums">
+                        {r.diff > 0 ? `+${r.diff}` : r.diff}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

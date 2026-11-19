@@ -65,6 +65,10 @@ const SUPPORTED = new Set([
   "DRAW_LOTS",
   "SET_RATIO",
   "POINT_RATIO",
+  "BUCHHOLZ",
+  "BUCHHOLZ_CUT1",
+  "MEDIAN_BUCHHOLZ",
+  "SONNEBORN_BERGER",
 ]);
 
 function sidePoints(
@@ -163,6 +167,37 @@ export function computeStandings(
   } = {},
 ): { rows: StandingRow[]; ignored: string[] } {
   const overall = statsOf(ids, matches, rules);
+  // Swiss tiebreakers look at who each participant faced and how those opponents finished.
+  const faced = new Map<
+    string,
+    { opponent: string; result: "W" | "D" | "L" }[]
+  >(ids.map((id) => [id, []]));
+  for (const m of matches) {
+    if (!faced.has(m.homeId) || !faced.has(m.awayId)) continue;
+    const homeWon = m.walkover
+      ? m.winnerId === m.homeId
+      : m.homeScore > m.awayScore;
+    const awayWon = m.walkover
+      ? m.winnerId === m.awayId
+      : m.awayScore > m.homeScore;
+    faced
+      .get(m.homeId)!
+      .push({
+        opponent: m.awayId,
+        result: homeWon ? "W" : awayWon ? "L" : "D",
+      });
+    faced
+      .get(m.awayId)!
+      .push({
+        opponent: m.homeId,
+        result: awayWon ? "W" : homeWon ? "L" : "D",
+      });
+  }
+  const opponentPoints = (id: string) =>
+    (faced.get(id) ?? []).map((f) => ({
+      ...f,
+      points: overall.get(f.opponent)?.points ?? 0,
+    }));
   const lotsRnd = mulberry32(options.lotsSeed ?? 1);
   const lots = new Map(ids.map((id) => [id, lotsRnd()]));
   const criteria = rules.tiebreakers.filter((t) => SUPPORTED.has(t.key));
@@ -189,6 +224,25 @@ export function computeStandings(
         return ratio(s.scoreFor, s.scoreAgainst);
       case "POINT_RATIO":
         return ratio(s.pointsFor, s.pointsAgainst);
+      case "BUCHHOLZ":
+        return opponentPoints(id).reduce((t, f) => t + f.points, 0);
+      case "BUCHHOLZ_CUT1": {
+        const p = opponentPoints(id).map((f) => f.points);
+        return p.length ? p.reduce((t, x) => t + x, 0) - Math.min(...p) : 0;
+      }
+      case "MEDIAN_BUCHHOLZ": {
+        const p = opponentPoints(id).map((f) => f.points);
+        return p.length >= 3
+          ? p.reduce((t, x) => t + x, 0) - Math.min(...p) - Math.max(...p)
+          : p.reduce((t, x) => t + x, 0);
+      }
+      case "SONNEBORN_BERGER":
+        return opponentPoints(id).reduce(
+          (t, f) =>
+            t +
+            (f.result === "W" ? f.points : f.result === "D" ? f.points / 2 : 0),
+          0,
+        );
       case "FEWER_FORFEITS":
         return -s.forfeits;
       case "SEED":
