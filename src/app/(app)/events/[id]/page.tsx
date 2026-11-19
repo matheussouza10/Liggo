@@ -23,6 +23,8 @@ import { PARTICIPATION_LABELS } from "@/lib/catalog/config";
 import { formatDay } from "@/lib/events/constants";
 import { getEvent } from "@/lib/events/queries";
 import { PublicToggle } from "@/components/competition/public-toggle";
+import { EventActions } from "@/components/events/event-actions";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { prisma } from "@/lib/prisma";
 import { storedRulesToInput } from "@/lib/rules/queries";
 import { summarizeRules } from "@/lib/rules/summary";
@@ -35,19 +37,33 @@ export const metadata: Metadata = {
 // Reads the session on every request (see the note in the parent layout).
 export const instant = false;
 
-export default async function EventPage({ params }: PageProps<"/events/[id]">) {
+export default async function EventPage({
+  params,
+  searchParams,
+}: PageProps<"/events/[id]">) {
   const user = await requireOrganizationUser();
   const { id } = await params;
+  const { saved, copied } = await searchParams;
   // Scoped to the user's organization: another tenant's event is a 404.
   const event = user.organization
     ? await getEvent(user.organization.id, id)
     : null;
   if (!event) notFound();
 
-  const [categoryCount, registrationCount] = await Promise.all([
-    prisma.eventCategory.count({ where: { eventId: event.id } }),
-    prisma.registration.count({ where: { eventId: event.id } }),
-  ]);
+  const [categoryCount, registrationCount, matchCount, playedCount] =
+    await Promise.all([
+      prisma.eventCategory.count({ where: { eventId: event.id } }),
+      prisma.registration.count({ where: { eventId: event.id } }),
+      prisma.match.count({
+        where: { stageRun: { stage: { eventId: event.id } } },
+      }),
+      prisma.match.count({
+        where: {
+          stageRun: { stage: { eventId: event.id } },
+          status: { not: "SCHEDULED" },
+        },
+      }),
+    ]);
   const rules = storedRulesToInput(event);
   const summary = rules ? summarizeRules(rules) : null;
 
@@ -84,6 +100,33 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
           <Badge variant="secondary">{event.sport.name}</Badge>
         </div>
       </div>
+
+      {saved ? (
+        <Alert>
+          <AlertDescription>Alterações do evento salvas.</AlertDescription>
+        </Alert>
+      ) : null}
+      {copied ? (
+        <Alert>
+          <AlertDescription>
+            Evento duplicado. As categorias, as regras e as fases vieram da
+            versão anterior; as inscrições e os jogos começam do zero.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <EventActions
+        eventId={event.id}
+        eventName={event.name}
+        startDate={event.startDate.toISOString().slice(0, 10)}
+        endDate={event.endDate.toISOString().slice(0, 10)}
+        isOwner={user.role === "OWNER"}
+        impact={{
+          registrations: registrationCount,
+          matches: matchCount,
+          played: playedCount,
+        }}
+      />
 
       {event.description ? (
         <p className="whitespace-pre-line text-muted-foreground">

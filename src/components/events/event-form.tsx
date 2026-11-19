@@ -36,10 +36,21 @@ import type {
   OptionGroup,
   SimpleOption,
 } from "@/lib/catalog/queries";
-import { createEventAction, type EventFormState } from "@/lib/events/actions";
+import {
+  createEventAction,
+  updateEventAction,
+  type EventFormState,
+} from "@/lib/events/actions";
 import { BR_STATES, EVENT_LIMITS } from "@/lib/events/constants";
 
 type Props = {
+  /** "edit" saves changes to an existing event instead of creating one. */
+  mode?: "create" | "edit";
+  eventId?: string;
+  /** Values the form starts with (edit). */
+  initial?: Record<string, string>;
+  /** The modality and the way people take part cannot change anymore (registrations or phases exist). */
+  locked?: boolean;
   options: {
     types: OptionGroup<SimpleOption>[];
     formats: OptionGroup<FormatOption>[];
@@ -67,10 +78,17 @@ function GroupedOptions<T extends SimpleOption>({
   );
 }
 
-export function EventForm({ options }: Props) {
+export function EventForm({
+  options,
+  mode = "create",
+  eventId,
+  initial,
+  locked = false,
+}: Props) {
   const id = useId();
+  const editing = mode === "edit" && !!eventId;
   const [state, formAction, pending] = useActionState(
-    createEventAction,
+    editing ? updateEventAction.bind(null, eventId) : createEventAction,
     {} as EventFormState,
   );
 
@@ -82,7 +100,7 @@ export function EventForm({ options }: Props) {
     const data = new FormData(event.currentTarget);
     startTransition(() => formAction(data));
   };
-  const values = state.values ?? {};
+  const values = state.values ?? initial ?? {};
   const errors = state.fieldErrors ?? {};
 
   // Controlled so the format hint follows the selection and survives the
@@ -116,7 +134,11 @@ export function EventForm({ options }: Props) {
         {state.error ? (
           <Alert variant="destructive">
             <CircleAlertIcon />
-            <AlertTitle>Não foi possível criar o evento</AlertTitle>
+            <AlertTitle>
+              {editing
+                ? "Não foi possível salvar"
+                : "Não foi possível criar o evento"}
+            </AlertTitle>
             <AlertDescription>{state.error}</AlertDescription>
           </Alert>
         ) : null}
@@ -197,6 +219,7 @@ export function EventForm({ options }: Props) {
               id={`${id}-sport`}
               name="sportId"
               defaultValue={values.sportId ?? ""}
+              disabled={locked}
               className="w-full"
               {...field("sportId")}
             >
@@ -205,6 +228,12 @@ export function EventForm({ options }: Props) {
               </NativeSelectOption>
               <GroupedOptions groups={options.sports} />
             </NativeSelect>
+            {locked ? (
+              <FieldDescription>
+                Não dá para mudar a modalidade depois das inscrições ou do
+                sorteio.
+              </FieldDescription>
+            ) : null}
             {err("sportId")}
           </Field>
         </div>
@@ -240,6 +269,7 @@ export function EventForm({ options }: Props) {
             name="participationType"
             value={participation}
             onValueChange={setParticipation}
+            disabled={locked}
             aria-labelledby={`${id}-participation-label`}
             className="flex flex-wrap gap-x-6 gap-y-2"
           >
@@ -250,6 +280,12 @@ export function EventForm({ options }: Props) {
               </label>
             ))}
           </RadioGroup>
+          {locked ? (
+            <FieldDescription>
+              Não dá para mudar o formato de participação depois das inscrições
+              ou do sorteio.
+            </FieldDescription>
+          ) : null}
           {err("participationType")}
         </Field>
 
@@ -307,7 +343,13 @@ export function EventForm({ options }: Props) {
             disabled={pending}
             className="h-11 px-5 text-base"
           >
-            {pending ? "Criando evento" : "Criar evento"}
+            {pending
+              ? editing
+                ? "Salvando"
+                : "Criando evento"
+              : editing
+                ? "Salvar alterações"
+                : "Criar evento"}
             {pending ? (
               <Spinner data-icon="inline-end" />
             ) : (
@@ -315,7 +357,7 @@ export function EventForm({ options }: Props) {
             )}
           </Button>
           <Link
-            href="/events"
+            href={editing ? `/events/${eventId}` : "/events"}
             className={
               buttonVariants({ variant: "outline", size: "lg" }) +
               " h-11 px-5 text-base"

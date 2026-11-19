@@ -2,6 +2,7 @@ import {
   ClipboardListIcon,
   EyeOffIcon,
   GlobeIcon,
+  PencilIcon,
   PlusIcon,
   SlidersHorizontalIcon,
   SwordsIcon,
@@ -96,7 +97,7 @@ export default async function EventsPage() {
                 <TableHead className="hidden xl:table-cell">
                   Participação
                 </TableHead>
-                <TableHead className="w-44 text-right">Acesso rápido</TableHead>
+                <TableHead className="w-52 text-right">Acesso rápido</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,6 +134,11 @@ export default async function EventsPage() {
                       className="flex items-center justify-end gap-1"
                     >
                       {[
+                        {
+                          href: `/events/${event.id}/edit`,
+                          label: "Editar",
+                          Icon: PencilIcon,
+                        },
                         {
                           href: `/events/${event.id}/rules`,
                           label: "Regras",
