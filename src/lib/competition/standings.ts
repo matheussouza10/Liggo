@@ -1,4 +1,5 @@
 import { mulberry32 } from "./prng";
+import { ratio } from "./sets";
 
 export type FinishedMatch = {
   homeId: string;
@@ -8,6 +9,8 @@ export type FinishedMatch = {
   walkover: boolean;
   /** Only needed for walkovers (the score alone may be equal in odd rules). */
   winnerId: string | null;
+  /** Sets played, from the home side's point of view (scoring by sets only). */
+  sets?: { home: number; away: number }[];
 };
 
 export type PointsRule = {
@@ -41,6 +44,9 @@ export type StandingRow = {
   diff: number;
   points: number;
   forfeits: number;
+  /** Points scored and conceded across all sets (scoring by sets only). */
+  pointsFor: number;
+  pointsAgainst: number;
   /** Still tied after every criterion (nothing left to break it). */
   tied: boolean;
 };
@@ -57,6 +63,8 @@ const SUPPORTED = new Set([
   "FEWER_FORFEITS",
   "SEED",
   "DRAW_LOTS",
+  "SET_RATIO",
+  "POINT_RATIO",
 ]);
 
 function sidePoints(
@@ -104,6 +112,8 @@ function statsOf(
         diff: 0,
         points: 0,
         forfeits: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
       },
     ]),
   );
@@ -129,6 +139,10 @@ function statsOf(
       else if (lost) s.losses++;
       else s.draws++;
       if (m.walkover && lost) s.forfeits++;
+      for (const set of m.sets ?? []) {
+        s.pointsFor += side === "home" ? set.home : set.away;
+        s.pointsAgainst += side === "home" ? set.away : set.home;
+      }
       s.points += sidePoints(rules, own, other, m.walkover, won);
     }
   }
@@ -170,6 +184,11 @@ export function computeStandings(
         return s.scoreFor;
       case "SCORE_AGAINST":
         return -s.scoreAgainst;
+      // With scoring by sets the score is the number of sets won.
+      case "SET_RATIO":
+        return ratio(s.scoreFor, s.scoreAgainst);
+      case "POINT_RATIO":
+        return ratio(s.pointsFor, s.pointsAgainst);
       case "FEWER_FORFEITS":
         return -s.forfeits;
       case "SEED":

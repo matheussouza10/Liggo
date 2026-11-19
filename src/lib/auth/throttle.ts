@@ -2,7 +2,8 @@ import "server-only";
 
 import { prisma } from "@/lib/prisma";
 
-export type AttemptKind = "LOGIN_FAIL" | "RESET_REQUEST" | "INVITE";
+export type AttemptKind =
+  "LOGIN_FAIL" | "RESET_REQUEST" | "INVITE" | "REGISTRATION_REQUEST";
 
 const key = (value: string) => value.trim().toLowerCase();
 
@@ -55,4 +56,6 @@ export const LIMITS = {
   resetPerMinute: { max: 1, windowMs: 60 * 1000 },
   resetPerHour: { max: 3, windowMs: 60 * 60 * 1000 },
   invitePerHour: { max: 20, windowMs: 60 * 60 * 1000 },
+  requestPerIpHour: { max: 10, windowMs: 60 * 60 * 1000 },
+  requestPerEmailHour: { max: 5, windowMs: 60 * 60 * 1000 },
 } as const;

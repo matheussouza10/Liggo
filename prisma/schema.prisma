@@ -44,13 +44,14 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  organization    Organization?        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization    Organization?         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   sessions        Session[]
   resetTokens     PasswordResetToken[]
   invitationsSent Invitation[]
   createdEvents   Event[]
   registrations   Registration[]
   matchEvents     MatchEvent[]
+  decidedRequests RegistrationRequest[]
 
   @@index([organizationId])
   @@map("users")
@@ -181,36 +182,41 @@ model CompetitionFormat {
 }
 
 model Event {
-  id                String            @id @default(cuid())
-  organizationId    String
-  createdById       String
-  name              String
-  description       String?
-  startDate         DateTime          @db.Date
-  endDate           DateTime          @db.Date
-  eventTypeId       String
-  formatId          String
-  sportId           String
-  participationType ParticipationType
-  locationName      String
-  city              String?
-  state             String?
+  id                   String            @id @default(cuid())
+  organizationId       String
+  createdById          String
+  name                 String
+  description          String?
+  startDate            DateTime          @db.Date
+  endDate              DateTime          @db.Date
+  eventTypeId          String
+  formatId             String
+  sportId              String
+  participationType    ParticipationType
+  locationName         String
+  city                 String?
+  state                String?
   // Set when the first match is played; rules cannot change after that.
-  rulesLockedAt     DateTime?
+  rulesLockedAt        DateTime?
   // Whether the event shows on the public pages (/watch).
-  publicVisible     Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  publicVisible        Boolean           @default(true)
+  // Public registration through /register/[id]; requests are approved by the organizer.
+  registrationOpen     Boolean           @default(false)
+  registrationDeadline DateTime?
+  registrationNotes    String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
-  organization  Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy     User              @relation(fields: [createdById], references: [id], onDelete: Restrict)
-  eventType     EventType         @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
-  format        CompetitionFormat @relation(fields: [formatId], references: [id], onDelete: Restrict)
-  sport         Sport             @relation(fields: [sportId], references: [id], onDelete: Restrict)
-  rules         EventRules?
-  stages        EventStage[]
-  categories    EventCategory[]
-  registrations Registration[]
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy            User                  @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  eventType            EventType             @relation(fields: [eventTypeId], references: [id], onDelete: Restrict)
+  format               CompetitionFormat     @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  sport                Sport                 @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  rules                EventRules?
+  stages               EventStage[]
+  categories           EventCategory[]
+  registrations        Registration[]
+  registrationRequests RegistrationRequest[]
 
   @@index([organizationId, startDate])
   @@index([eventTypeId])
@@ -461,8 +467,9 @@ model SportPosition {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sport   Sport                @relation(fields: [sportId], references: [id], onDelete: Restrict)
-  members RegistrationMember[]
+  sport          Sport                       @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  members        RegistrationMember[]
+  requestMembers RegistrationRequestMember[]
 
   @@unique([sportId, name])
   @@map("sport_positions")
@@ -483,10 +490,11 @@ model EventCategory {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
-  event         Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  registrations Registration[]
-  members       RegistrationMember[]
-  stageRuns     StageRun[]
+  event                Event                 @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations        Registration[]
+  members              RegistrationMember[]
+  stageRuns            StageRun[]
+  registrationRequests RegistrationRequest[]
 
   @@unique([eventId, name])
   @@index([eventId])
@@ -511,6 +519,7 @@ model Registration {
   members   RegistrationMember[]
   staff     RegistrationStaff[]
   entries   StageEntry[]
+  request   RegistrationRequest?
 
   // A team enters a category once (several null teams are allowed).
   @@unique([categoryId, teamId])
@@ -680,6 +689,7 @@ model Match {
   winner   StageEntry?  @relation("MatchWinner", fields: [winnerEntryId], references: [id], onDelete: SetNull)
   referee  Referee?     @relation(fields: [refereeId], references: [id], onDelete: SetNull)
   events   MatchEvent[]
+  sets     MatchSet[]
 
   @@index([stageRunId, round, position])
   @@index([refereeId, scheduledAt])
@@ -788,4 +798,94 @@ model AuthAttempt {
 
   @@index([kind, key, createdAt])
   @@map("auth_attempts")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+/// A public request to take part in an event, waiting for the organizer.
+model RegistrationRequest {
+  id              String        @id @default(cuid())
+  eventId         String
+  categoryId      String
+  status          RequestStatus @default(PENDING)
+  teamName        String?
+  contactName     String
+  contactEmail    String
+  contactPhone    String?
+  notes           String?
+  consentAt       DateTime
+  /// SHA-256 of the secret in the status link.
+  tokenHash       String        @unique
+  rejectionReason String?
+  decidedAt       DateTime?
+  decidedById     String?
+  /// The registration created when approved.
+  registrationId  String?       @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  event        Event                       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category     EventCategory               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  decidedBy    User?                       @relation(fields: [decidedById], references: [id], onDelete: SetNull)
+  registration Registration?               @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  members      RegistrationRequestMember[]
+  staff        RegistrationRequestStaff[]
+
+  @@index([eventId, status])
+  @@index([contactEmail])
+  @@map("registration_requests")
+}
+
+model RegistrationRequestMember {
+  id           String   @id @default(cuid())
+  requestId    String
+  name         String
+  birthDate    DateTime @db.Date
+  gender       Gender
+  cpf          String?
+  email        String?
+  phone        String?
+  guardianName String?
+  guardianCpf  String?
+  shirtNumber  Int?
+  positionId   String?
+  isCaptain    Boolean  @default(false)
+
+  request  RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  position SportPosition?      @relation(fields: [positionId], references: [id], onDelete: SetNull)
+
+  @@index([requestId])
+  @@map("registration_request_members")
+}
+
+model RegistrationRequestStaff {
+  id        String    @id @default(cuid())
+  requestId String
+  name      String
+  role      StaffRole
+  contact   String?
+
+  request RegistrationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@map("registration_request_staff")
+}
+
+/// One set of a match scored by sets (volleyball, tennis...). Match.homeScore/awayScore hold the sets won.
+model MatchSet {
+  id         String @id @default(cuid())
+  matchId    String
+  number     Int
+  homePoints Int
+  awayPoints Int
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, number])
+  @@map("match_sets")
 }

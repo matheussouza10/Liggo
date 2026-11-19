@@ -19,6 +19,7 @@ export type RunMatchLite = {
   homeScore: number | null;
   awayScore: number | null;
   winnerEntryId: string | null;
+  sets?: { number: number; homePoints: number; awayPoints: number }[];
 };
 
 export type TableView = {
@@ -61,6 +62,10 @@ export function buildTables(
         awayScore: m.awayScore ?? 0,
         walkover: m.status === "WALKOVER",
         winnerId: m.winnerEntryId,
+        sets: (m.sets ?? [])
+          .slice()
+          .sort((a, b) => a.number - b.number)
+          .map((x) => ({ home: x.homePoints, away: x.awayPoints })),
       }));
     const result = computeStandings(
       members.map((e) => e.id),

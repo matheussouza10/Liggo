@@ -64,3 +64,86 @@ export function inviteMail(
     ),
   };
 }
+
+const statusLink = (token: string) =>
+  `${appUrl()}/register/status/${encodeURIComponent(token)}`;
+
+/** Sent to whoever asked to take part, right after sending the request. */
+export function requestReceivedMail(
+  to: string,
+  name: string,
+  eventName: string,
+  token: string,
+): Mail {
+  const link = statusLink(token);
+  return {
+    to,
+    subject: `Recebemos o seu pedido de inscrição em ${eventName}`,
+    text: `Olá, ${name}.\n\nRecebemos o seu pedido de inscrição em ${eventName}. A organização vai conferir os dados e você recebe a resposta por e-mail.\n\nAcompanhe o pedido (ou cancele, enquanto estiver pendente) por este link:\n\n${link}`,
+    html: layout(
+      "Pedido de inscrição recebido",
+      `Olá, ${escape(name)}. Recebemos o seu pedido de inscrição em <b>${escape(eventName)}</b>. A organização vai conferir os dados e você recebe a resposta por e-mail.`,
+      link,
+      "Acompanhar pedido",
+    ),
+  };
+}
+
+/**
+ * Sent when the organizer approves or rejects. It links to the event page: the
+ * secret of the status link is stored only as a hash, so it cannot be rebuilt here.
+ */
+export function requestDecisionMail(
+  to: string,
+  name: string,
+  eventName: string,
+  eventId: string,
+  decision: { approved: true } | { approved: false; reason: string },
+): Mail {
+  const link = `${appUrl()}/register/${encodeURIComponent(eventId)}`;
+  if (decision.approved) {
+    return {
+      to,
+      subject: `Inscrição aprovada em ${eventName}`,
+      text: `Olá, ${name}.\n\nBoas notícias: a sua inscrição em ${eventName} foi aprovada.\n\nVeja o evento:\n\n${link}`,
+      html: layout(
+        "Inscrição aprovada",
+        `Olá, ${escape(name)}. A sua inscrição em <b>${escape(eventName)}</b> foi aprovada.`,
+        link,
+        "Ver o evento",
+      ),
+    };
+  }
+  return {
+    to,
+    subject: `Sobre o seu pedido de inscrição em ${eventName}`,
+    text: `Olá, ${name}.\n\nO seu pedido de inscrição em ${eventName} não foi aprovado.\nMotivo informado pela organização: ${decision.reason}\n\nVeja o evento:\n\n${link}`,
+    html: layout(
+      "Pedido não aprovado",
+      `Olá, ${escape(name)}. O seu pedido de inscrição em <b>${escape(eventName)}</b> não foi aprovado.<br><br><b>Motivo:</b> ${escape(decision.reason)}`,
+      link,
+      "Ver o evento",
+    ),
+  };
+}
+
+/** Sent to the owners of the organization when a request arrives. */
+export function newRequestMail(
+  to: string,
+  eventName: string,
+  who: string,
+  eventId: string,
+): Mail {
+  const link = `${appUrl()}/events/${eventId}/requests`;
+  return {
+    to,
+    subject: `Novo pedido de inscrição em ${eventName}`,
+    text: `${who} pediu para participar de ${eventName}.\n\nConfira e aprove ou recuse:\n\n${link}`,
+    html: layout(
+      "Novo pedido de inscrição",
+      `<b>${escape(who)}</b> pediu para participar de <b>${escape(eventName)}</b>.`,
+      link,
+      "Ver pedidos",
+    ),
+  };
+}

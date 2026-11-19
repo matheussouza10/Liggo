@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import {
   BarChart3Icon,
   ClipboardListIcon,
+  InboxIcon,
   SlidersHorizontalIcon,
   SwordsIcon,
 } from "lucide-react";
@@ -24,6 +25,9 @@ import { formatDay } from "@/lib/events/constants";
 import { getEvent } from "@/lib/events/queries";
 import { PublicToggle } from "@/components/competition/public-toggle";
 import { EventActions } from "@/components/events/event-actions";
+import { RegistrationSettings } from "@/components/requests/registration-settings";
+import { appUrl } from "@/lib/mail";
+import { countPendingRequests } from "@/lib/requests/queries";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { prisma } from "@/lib/prisma";
 import { storedRulesToInput } from "@/lib/rules/queries";
@@ -50,20 +54,26 @@ export default async function EventPage({
     : null;
   if (!event) notFound();
 
-  const [categoryCount, registrationCount, matchCount, playedCount] =
-    await Promise.all([
-      prisma.eventCategory.count({ where: { eventId: event.id } }),
-      prisma.registration.count({ where: { eventId: event.id } }),
-      prisma.match.count({
-        where: { stageRun: { stage: { eventId: event.id } } },
-      }),
-      prisma.match.count({
-        where: {
-          stageRun: { stage: { eventId: event.id } },
-          status: { not: "SCHEDULED" },
-        },
-      }),
-    ]);
+  const [
+    categoryCount,
+    registrationCount,
+    matchCount,
+    playedCount,
+    pendingRequests,
+  ] = await Promise.all([
+    prisma.eventCategory.count({ where: { eventId: event.id } }),
+    prisma.registration.count({ where: { eventId: event.id } }),
+    prisma.match.count({
+      where: { stageRun: { stage: { eventId: event.id } } },
+    }),
+    prisma.match.count({
+      where: {
+        stageRun: { stage: { eventId: event.id } },
+        status: { not: "SCHEDULED" },
+      },
+    }),
+    countPendingRequests(event.id),
+  ]);
   const rules = storedRulesToInput(event);
   const summary = rules ? summarizeRules(rules) : null;
 
@@ -255,6 +265,52 @@ export default async function EventPage({
           {" em "}
           {categoryCount} {categoryCount === 1 ? "categoria" : "categorias"}.
         </p>
+      </section>
+
+      <section
+        className="flex flex-col gap-4 border-t pt-6"
+        aria-labelledby="requests-heading"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2
+            id="requests-heading"
+            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+          >
+            Inscrições públicas
+          </h2>
+          <Link
+            href={`/events/${event.id}/requests`}
+            className={buttonVariants({
+              variant: pendingRequests > 0 ? "default" : "outline",
+            })}
+          >
+            <InboxIcon data-icon="inline-start" />
+            Pedidos
+            {pendingRequests > 0 ? (
+              <Badge variant="secondary" className="ml-1">
+                {pendingRequests}{" "}
+                {pendingRequests === 1 ? "pendente" : "pendentes"}
+              </Badge>
+            ) : null}
+          </Link>
+        </div>
+        <p className="text-muted-foreground">
+          Times e atletas pedem para participar por um link, sem conta. Nada
+          entra no evento até você aprovar.
+        </p>
+        <RegistrationSettings
+          eventId={event.id}
+          link={`${appUrl()}/register/${event.id}`}
+          initial={{
+            open: event.registrationOpen,
+            deadline: event.registrationDeadline
+              ? new Date(event.registrationDeadline.getTime() - 3 * 3600 * 1000)
+                  .toISOString()
+                  .slice(0, 10)
+              : "",
+            notes: event.registrationNotes ?? "",
+          }}
+        />
       </section>
 
       <section
