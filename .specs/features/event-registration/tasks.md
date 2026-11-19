@@ -12,3 +12,6 @@ Portão: `npm run typecheck && npm run lint`.
 | B6 | Resumo no detalhe do evento | B4,B5 | REG-12 |
 | B7 | Verificação Playwright + build | B6 | todos |
 | B8 | Docs, memória e commit | B7 | - |
+
+Status: B1 a B8 concluídas. Verificação: 22 checagens Playwright (categorias, elegibilidade, conflitos, edição, exclusão, isolamento entre organizações), 18 casos unitários de elegibilidade e schemas, lint e build.
+Não coberto por e2e: eventos individuais e de duplas (a regra de 1 e 2 atletas está só no servidor).

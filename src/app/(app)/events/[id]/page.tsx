@@ -2,7 +2,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { SlidersHorizontalIcon } from "lucide-react";
+import { ClipboardListIcon, SlidersHorizontalIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import { requireOrganizationUser } from "@/lib/auth/guards";
 import { PARTICIPATION_LABELS } from "@/lib/catalog/config";
 import { formatDay } from "@/lib/events/constants";
 import { getEvent } from "@/lib/events/queries";
+import { prisma } from "@/lib/prisma";
 import { storedRulesToInput } from "@/lib/rules/queries";
 import { summarizeRules } from "@/lib/rules/summary";
 
@@ -37,6 +38,10 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
     : null;
   if (!event) notFound();
 
+  const [categoryCount, registrationCount] = await Promise.all([
+    prisma.eventCategory.count({ where: { eventId: event.id } }),
+    prisma.registration.count({ where: { eventId: event.id } }),
+  ]);
   const rules = storedRulesToInput(event);
   const summary = rules ? summarizeRules(rules) : null;
 
@@ -165,6 +170,42 @@ export default async function EventPage({ params }: PageProps<"/events/[id]">) {
             </EmptyContent>
           </Empty>
         )}
+      </section>
+
+      <section
+        className="flex flex-col gap-4 border-t pt-6"
+        aria-labelledby="registrations-heading"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2
+            id="registrations-heading"
+            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+          >
+            Inscrições
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/events/${event.id}/categories`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Categorias
+            </Link>
+            <Link
+              href={`/events/${event.id}/registrations`}
+              className={buttonVariants()}
+            >
+              <ClipboardListIcon data-icon="inline-start" />
+              Ver inscrições
+            </Link>
+          </div>
+        </div>
+        <p className="text-muted-foreground">
+          {registrationCount === 0
+            ? "Nenhuma inscrição ainda."
+            : `${registrationCount} ${registrationCount === 1 ? "inscrição" : "inscrições"}`}
+          {" em "}
+          {categoryCount} {categoryCount === 1 ? "categoria" : "categorias"}.
+        </p>
       </section>
     </div>
   );

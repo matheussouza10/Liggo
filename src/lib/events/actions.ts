@@ -140,6 +140,8 @@ export async function createEventAction(
       locationName: values.locationName,
       city: values.city || null,
       state: state || null,
+      // Registrations need a category, so every event starts with a general one.
+      categories: { create: { name: "Geral", gender: "MIXED", sortOrder: 0 } },
     },
     select: { id: true },
   });

@@ -27,5 +27,7 @@ antes de rodar `npm run db:seed`. Sem essas variáveis o seed não cria ninguém
 - Atletas, times e árbitros do organizador: `/athletes`, `/teams`, `/referees` (cada um com `/new` e `/[id]`)
 - Eventos do organizador: `/events`, `/events/new`, `/events/[id]`, `/events/[id]/rules` (regras da competição)
 - Cadastros do admin: `/admin/sports`, `/admin/event-types`, `/admin/formats` (cada um com `/categories`)
+- Posições por modalidade no admin: `/admin/positions`
+- Inscrições do evento: `/events/[id]/categories` e `/events/[id]/registrations` (elenco escolhido por evento, com camisa, posição, capitão e comissão técnica)
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).
