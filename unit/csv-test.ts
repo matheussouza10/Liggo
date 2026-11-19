@@ -1,0 +1,10 @@
+import { csvCell, toCsv } from "../src/lib/reports/csv";
+let f=0; const ok=(n:string,c:boolean)=>{ if(!c) f++; console.log(c?"PASS":"FAIL",n) };
+ok("texto simples sem aspas",csvCell("Time A")==="Time A");
+ok("ponto e vírgula, aspas e quebra de linha são protegidos",csvCell("a;b")==='"a;b"'&&csvCell('diz "oi"')==='"diz ""oi"""'&&csvCell("a\nb")==='"a\nb"');
+ok("nulo e indefinido viram vazio; número e booleano viram texto",csvCell(null)===""&&csvCell(undefined)===""&&csvCell(10)==="10"&&csvCell(true)==="true");
+ok("célula que começa como fórmula é neutralizada (=, +, -, @)",csvCell("=1+1")==="'=1+1"&&csvCell("+55 31")==="'+55 31"&&csvCell("@x")==="'@x");
+ok("número negativo continua número",csvCell("-3")==="-3"&&csvCell("-3,5")==="-3,5");
+const out=toCsv(["Nome","Camisa"],[["Ana; Maria",10],["João",null]]);
+ok("arquivo com BOM, separador ; e quebra de linha CRLF",out.startsWith("﻿Nome;Camisa\r\n")&&out.includes('"Ana; Maria";10\r\n')&&out.endsWith("João;\r\n"));
+console.log(f===0?"TODOS PASSARAM":`${f} FALHAS`);

@@ -52,9 +52,17 @@ export default async function MatchPage({
           <ArrowLeftIcon className="size-4" />
           Fases
         </Link>
-        <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
-          Jogo
-        </h1>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
+            Jogo
+          </h1>
+          <Link
+            href={`/events/${id}/reports/matches/${matchId}`}
+            className="text-sm"
+          >
+            Súmula para imprimir
+          </Link>
+        </div>
       </div>
       <MatchControl
         eventId={id}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CopyIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, FileTextIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -90,6 +90,13 @@ export function EventActions({
       >
         <PencilIcon data-icon="inline-start" />
         Editar
+      </Link>
+      <Link
+        href={`/events/${eventId}/reports`}
+        className={buttonVariants({ variant: "outline", size: "sm" }) + " h-9"}
+      >
+        <FileTextIcon data-icon="inline-start" />
+        Relatórios
       </Link>
       <Button
         type="button"

@@ -75,3 +75,11 @@ Agendamento automático por quadra já existia (`autoScheduleAction`).
 - Séries ao vivo: cada jogo de um melhor de N ou ida e volta pode ser marcado ao vivo; ao encerrar, o placar ao vivo preenche a próxima linha da série; salvar uma série ainda aberta zera o ao vivo para o jogo seguinte; a página pública mostra "Jogos da série". Teste: `e2e/series.mjs BEST_OF`.
 - Árvore da dupla eliminação: aba "Chave" com três seções (chave superior, chave inferior, final), colunas por rodada, abrindo o resultado ao clicar. `DoubleBracketView`.
 - Lacunas que ficaram: baterias (séries eliminatórias) nas provas por desempenho e repescagem do judô (cria jogos conforme os finalistas).
+
+## Relatórios (feitos)
+- `/reports` lista os eventos; `/events/[id]/reports` é a central: lista de inscritos, resultados e classificação, e a súmula de cada jogo (com os dois participantes).
+- PDF: cada relatório é uma folha branca A4 que imprime limpo (menu, cabeçalho e fundo escuro somem com `print:`); o botão "Imprimir ou salvar em PDF" abre o diálogo do navegador (o PDF sai do Chrome/Safari, sem dependência no servidor). Validado gerando o PDF com o Chrome (`page.pdf`, `e2e/reports.mjs`).
+- Planilhas CSV (`registrations.csv`, `results.csv`): ponto e vírgula, UTF-8 com BOM, aspas protegidas, células que parecem fórmula neutralizadas (`src/lib/reports/csv.ts`, `unit/csv-test.ts`). Exigem login (401 sem sessão) e só entregam eventos da organização.
+- Privacidade: os relatórios não trazem CPF nem contato de atleta (só a comissão técnica tem contato). A súmula traz elencos, lances (`describeEvent`), sets e jogos da série, e linhas de assinatura.
+- Atalhos: botão "Relatórios" na página do evento e "Súmula para imprimir" na tela do jogo.
+Pendente: relatório financeiro (depende de pagamento), estatísticas (artilharia) em PDF, logotipo da organização no cabeçalho.

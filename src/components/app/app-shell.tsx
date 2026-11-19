@@ -167,8 +167,8 @@ export function AppShell({ area, user, eventCount, children }: Props) {
   );
 
   return (
-    <div className="theme-dark relative min-h-dvh overflow-hidden bg-[#091225] text-white">
-      <div className="app-ambient" aria-hidden="true">
+    <div className="theme-dark relative min-h-dvh overflow-hidden bg-[#091225] text-white print:overflow-visible print:bg-white print:text-black">
+      <div className="app-ambient print:hidden" aria-hidden="true">
         <div className="ambient-orb ambient-orb-blue" />
         <div className="ambient-orb ambient-orb-cyan" />
         <div className="ambient-grid" />
@@ -185,7 +185,7 @@ export function AppShell({ area, user, eventCount, children }: Props) {
 
       <aside
         className={cn(
-          "liquid-sidebar fixed inset-y-0 left-0 z-50 flex w-[258px] flex-col px-4 py-5 text-white transition-[width,transform,padding] duration-300 lg:translate-x-0",
+          "liquid-sidebar fixed inset-y-0 left-0 z-50 flex w-[258px] flex-col px-4 py-5 text-white transition-[width,transform,padding] duration-300 lg:translate-x-0 print:hidden",
           collapsed ? "lg:w-[88px] lg:px-3" : "lg:w-[258px]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
@@ -306,11 +306,11 @@ export function AppShell({ area, user, eventCount, children }: Props) {
 
       <div
         className={cn(
-          "relative z-10 transition-[padding] duration-300",
+          "relative z-10 transition-[padding] duration-300 print:pl-0",
           collapsed ? "lg:pl-[88px]" : "lg:pl-[258px]",
         )}
       >
-        <header className="liquid-topbar sticky top-0 z-30 flex h-[72px] items-center px-4 sm:px-6 xl:px-9">
+        <header className="liquid-topbar sticky top-0 z-30 flex h-[72px] items-center px-4 sm:px-6 xl:px-9 print:hidden">
           <button
             type="button"
             aria-label="Abrir menu"
@@ -410,7 +410,7 @@ export function AppShell({ area, user, eventCount, children }: Props) {
           </DropdownMenu>
         </header>
 
-        <main className="mx-auto max-w-[1500px] p-4 sm:p-6 xl:p-9">
+        <main className="mx-auto max-w-[1500px] p-4 sm:p-6 xl:p-9 print:max-w-none print:p-0">
           {children}
         </main>
       </div>
