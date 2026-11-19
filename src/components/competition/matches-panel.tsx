@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  WIN_METHODS,
+  WIN_METHOD_LABELS,
+  type WinMethodKey,
+} from "@/lib/competition/win-method";
+import {
   evaluateSeries,
   type SeriesConfig,
   type SeriesOutcome,
@@ -62,6 +67,7 @@ export function MatchesPanel({
   penalties,
   setsConfig,
   series,
+  recordMethod,
   live,
   eventStart,
   openMatch,
@@ -76,6 +82,8 @@ export function MatchesPanel({
   penalties: boolean;
   setsConfig: SetsConfig | null;
   series: SeriesConfig | null;
+  /** Combat sports record how each match was won. */
+  recordMethod: boolean;
   live: boolean;
   eventStart: string;
   openMatch: MatchView | null;
@@ -154,6 +162,12 @@ export function MatchesPanel({
                           {m.status === "SCHEDULED"
                             ? "x"
                             : `${m.homeScore} x ${m.awayScore}`}
+                          {m.winMethod ? (
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {WIN_METHOD_LABELS[m.winMethod as WinMethodKey] ??
+                                m.winMethod}
+                            </span>
+                          ) : null}
                           {m.games.length ? (
                             <span className="block text-xs font-normal text-muted-foreground">
                               {m.games
@@ -177,7 +191,8 @@ export function MatchesPanel({
                         <span
                           className={`truncate ${m.winnerId && m.winnerId === m.awayId ? "font-semibold" : ""} ${!m.awayName ? "text-muted-foreground" : ""}`}
                         >
-                          {m.awayName ?? "A definir"}
+                          {m.awayName ??
+                            (m.status === "WALKOVER" ? "Folga" : "A definir")}
                         </span>
                       </div>
                       <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -266,6 +281,7 @@ export function MatchesPanel({
           penalties={penalties}
           setsConfig={setsConfig}
           series={series}
+          recordMethod={recordMethod}
           onClose={() => {
             setResult(null);
             onCloseMatch();
@@ -300,6 +316,7 @@ export function ResultDialog({
   penalties,
   setsConfig,
   series,
+  recordMethod,
   onClose,
 }: {
   eventId: string;
@@ -308,9 +325,11 @@ export function ResultDialog({
   penalties: boolean;
   setsConfig: SetsConfig | null;
   series: SeriesConfig | null;
+  recordMethod: boolean;
   onClose: () => void;
 }) {
   const { pending, error, run } = useAction();
+  const [method, setMethod] = useState<string>(match.winMethod ?? "");
   // A knockout tie played over several games: one row per game.
   const [games, setGames] = useState<{ home: string; away: string }[]>(() =>
     match.games.length
@@ -391,6 +410,7 @@ export function ResultDialog({
               }
             : {}),
           walkover: wo || null,
+          winMethod: recordMethod && wo === "" && method ? method : null,
           ...(setsConfig && wo === ""
             ? {
                 sets: filled.map((x) => ({
@@ -435,6 +455,26 @@ export function ResultDialog({
               </NativeSelectOption>
             </NativeSelect>
           </Field>
+          {recordMethod && wo === "" ? (
+            <Field>
+              <FieldLabel htmlFor="win-method">
+                Como terminou (opcional)
+              </FieldLabel>
+              <NativeSelect
+                id="win-method"
+                className="w-full"
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+              >
+                <NativeSelectOption value="">Não informar</NativeSelectOption>
+                {WIN_METHODS.map((k) => (
+                  <NativeSelectOption key={k} value={k}>
+                    {WIN_METHOD_LABELS[k]}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Field>
+          ) : null}
           {wo === "" && series && seriesOutcome ? (
             <SeriesForm
               config={series}

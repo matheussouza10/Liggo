@@ -16,6 +16,7 @@ import {
   generateNextRoundAction,
   resetMatchesAction,
 } from "@/lib/competition/actions";
+import type { PerfView } from "@/lib/competition/performance-view";
 import type { SeriesConfig } from "@/lib/competition/series";
 import type { SetsConfig } from "@/lib/competition/sets";
 import type { DrawEntryProps } from "@/lib/competition/types";
@@ -24,11 +25,12 @@ import { BracketView } from "./bracket-view";
 import { DrawPanel } from "./draw-panel";
 import { DrawReveal } from "./draw-reveal";
 import { MatchesPanel } from "./matches-panel";
+import { PerformancePanel } from "./performance-panel";
 import { ParticipantsPanel } from "./participants-panel";
 import { StandingsTables } from "./standings-tables";
 import { useAction } from "./use-action";
 
-type Tab = "participants" | "matches" | "table";
+type Tab = "participants" | "matches" | "table" | "results";
 
 export function StageBoard({
   eventId,
@@ -40,6 +42,8 @@ export function StageBoard({
   penalties,
   setsConfig,
   series,
+  performance,
+  combat,
   eventStart,
   isFirstStage,
   hasNextStage,
@@ -48,7 +52,13 @@ export function StageBoard({
   eventId: string;
   stage: {
     id: string;
-    type: "ROUND_ROBIN" | "GROUPS" | "SINGLE_ELIM" | "DOUBLE_ELIM" | "SWISS";
+    type:
+      | "ROUND_ROBIN"
+      | "GROUPS"
+      | "SINGLE_ELIM"
+      | "DOUBLE_ELIM"
+      | "SWISS"
+      | "PERFORMANCE";
     swissRounds: number | null;
     advancingPerGroup: number | null;
     seeding: DrawEntryProps["defaultMode"];
@@ -60,6 +70,10 @@ export function StageBoard({
   penalties: boolean;
   setsConfig: SetsConfig | null;
   series: SeriesConfig | null;
+  /** Ranking of a performance event (null for the other stage types). */
+  performance: PerfView | null;
+  /** Combat sport: record how each match was won. */
+  combat: boolean;
   eventStart: string;
   isFirstStage: boolean;
   hasNextStage: boolean;
@@ -69,7 +83,17 @@ export function StageBoard({
   const knockout = stage.type === "SINGLE_ELIM" || double;
   const isGroups = stage.type === "GROUPS";
   const hasMatches = !!view && view.matches.length > 0;
-  const [tab, setTab] = useState<Tab>(hasMatches ? "matches" : "participants");
+  const perf = stage.type === "PERFORMANCE";
+  const perfStarted = perf && !!view && view.status !== "DRAWN";
+  const [tab, setTab] = useState<Tab>(
+    perfStarted ? "results" : hasMatches ? "matches" : "participants",
+  );
+  // Starting the event opens the results.
+  const [hadPerfStarted, setHadPerfStarted] = useState(perfStarted);
+  if (perfStarted !== hadPerfStarted) {
+    setHadPerfStarted(perfStarted);
+    setTab(perfStarted ? "results" : "participants");
+  }
   const [bracketMatch, setBracketMatch] = useState<MatchView | null>(null);
   // Once the matches are generated the organizer wants to see them.
   const [hadMatches, setHadMatches] = useState(hasMatches);
@@ -116,6 +140,18 @@ export function StageBoard({
 
   return (
     <div className="flex flex-col gap-5">
+      {perf &&
+      view?.status === "DONE" &&
+      performance?.rows[0]?.status === "OK" ? (
+        <Alert>
+          <TrophyIcon />
+          <AlertTitle>
+            Vencedor: {performance.rows[0].name} ({performance.rows[0].value})
+          </AlertTitle>
+          <AlertDescription>Prova concluída.</AlertDescription>
+        </Alert>
+      ) : null}
+
       {view?.champion ? (
         <Alert>
           <TrophyIcon />
@@ -123,7 +159,20 @@ export function StageBoard({
             {knockout ? "Campeão" : "Líder"}: {view.champion}
           </AlertTitle>
           <AlertDescription>
-            {knockout ? "A final foi decidida." : "Fase concluída."}
+            {view.podium.length > 1 ? (
+              <span data-testid="podium">
+                {view.podium
+                  .map(
+                    (p) =>
+                      `${p.place}º ${p.name}${p.note ? ` (${p.note})` : ""}`,
+                  )
+                  .join(" · ")}
+              </span>
+            ) : knockout ? (
+              "A final foi decidida."
+            ) : (
+              "Fase concluída."
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -170,6 +219,11 @@ export function StageBoard({
             <TabsTrigger value="participants" className="px-4 py-2">
               Participantes
             </TabsTrigger>
+            {perfStarted && performance ? (
+              <TabsTrigger value="results" className="px-4 py-2">
+                Resultados
+              </TabsTrigger>
+            ) : null}
             {hasMatches ? (
               <TabsTrigger value="matches" className="px-4 py-2">
                 Jogos
@@ -191,8 +245,19 @@ export function StageBoard({
               isKnockout={knockout}
               canRedraw={isFirstStage}
               drawProps={drawProps}
+              startLabel={perf ? "Iniciar prova" : "Gerar jogos"}
             />
           </TabsContent>
+
+          {perfStarted && performance ? (
+            <TabsContent value="results" className="pt-4">
+              <PerformancePanel
+                eventId={eventId}
+                view={performance}
+                editable={live}
+              />
+            </TabsContent>
+          ) : null}
 
           {hasMatches ? (
             <TabsContent value="matches" className="pt-4">
@@ -206,6 +271,7 @@ export function StageBoard({
                 penalties={penalties}
                 setsConfig={setsConfig}
                 series={series}
+                recordMethod={combat}
                 live={!!live}
                 eventStart={eventStart}
                 openMatch={bracketMatch}
@@ -242,6 +308,28 @@ export function StageBoard({
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      ) : null}
+
+      {perf && live ? (
+        <div className="flex flex-wrap items-center gap-3 border-t pt-5">
+          <Button
+            type="button"
+            size="lg"
+            className="h-11 px-5"
+            disabled={pending}
+            onClick={() => run(() => completeStageAction(eventId, view.id))}
+          >
+            {pending ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <CheckCheckIcon data-icon="inline-start" />
+            )}
+            Concluir prova
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Só conclui quando todas as tentativas estiverem lançadas.
+          </span>
+        </div>
       ) : null}
 
       {live && hasMatches ? (

@@ -5,6 +5,8 @@ import {
   canBuildDoubleElimination,
 } from "./double-elim";
 import { evaluateSets, setsConfigOf } from "./sets";
+import { WIN_METHODS } from "./win-method";
+import { maxAttemptsFor, perfConfigOf, tiebreakerKeys } from "./performance";
 import { maxSwissRounds, pairSwiss } from "./swiss";
 import { evaluateSeries, seriesConfigOf } from "./series";
 import { randomUUID } from "node:crypto";
@@ -27,6 +29,7 @@ import { drawBracketOrder, drawGroups, type DrawMode } from "./draw";
 import { roundRobin } from "./fixtures";
 import { mulberry32, newSeed, shuffle } from "./prng";
 import {
+  entryName,
   isSupportedStage,
   runTables,
   standingsRules,
@@ -66,9 +69,20 @@ async function loadRun(eventId: string, runId: string) {
 }
 
 async function resultsCount(runId: string) {
-  return prisma.match.count({
-    where: { stageRunId: runId, status: { not: "SCHEDULED" } },
-  });
+  const [matches, attempts] = await Promise.all([
+    // A bye (sitting out a swiss round) is not a result somebody entered.
+    prisma.match.count({
+      where: {
+        stageRunId: runId,
+        status: { not: "SCHEDULED" },
+        NOT: { status: "WALKOVER", awayEntryId: null },
+      },
+    }),
+    prisma.performanceAttempt.count({
+      where: { entry: { stageRunId: runId } },
+    }),
+  ]);
+  return matches + attempts;
 }
 
 // ---------------------------------------------------------------- draw
@@ -433,6 +447,8 @@ export async function generateMatchesAction(
     nextSlot?: "HOME" | "AWAY" | null;
     loserMatchId?: string | null;
     loserSlot?: "HOME" | "AWAY" | null;
+    /** Sits out the round (swiss with an odd field): a win with no opponent. */
+    bye?: boolean;
   };
   const data: NewMatch[] = [];
 
@@ -474,15 +490,13 @@ export async function generateMatchesAction(
         return fail(`${g.name} precisa de pelo menos 2 participantes.`);
       league(ids, g.id);
     }
+  } else if (stage.type === "PERFORMANCE") {
+    // A performance event has no matches: starting it just opens the results.
   } else if (stage.type === "SWISS") {
     // Round one now; the next rounds are generated one at a time from the standings.
     const rounds = stage.swissRounds ?? 0;
     if (rounds < 1)
       return fail("Informe o número de rodadas nas regras desta fase.");
-    if (entries.length % 2 !== 0)
-      return fail(
-        `O sistema suíço precisa de um número par de participantes (são ${entries.length}).`,
-      );
     if (rounds > maxSwissRounds(entries.length))
       return fail(
         `Com ${entries.length} participantes o máximo é ${maxSwissRounds(entries.length)} rodadas, para ninguém repetir adversário.`,
@@ -496,6 +510,18 @@ export async function generateMatchesAction(
       })),
     );
     if ("error" in first) return fail(first.error);
+    if (first.bye)
+      data.push({
+        id: randomUUID(),
+        stageRunId: run.id,
+        groupId: null,
+        round: 1,
+        position: first.pairs.length,
+        label: "Rodada 1 (folga)",
+        homeEntryId: first.bye,
+        awayEntryId: null,
+        bye: true,
+      });
     first.pairs.forEach((p, i) =>
       data.push({
         id: randomUUID(),
@@ -518,11 +544,11 @@ export async function generateMatchesAction(
     if (double) {
       if (!canBuildDoubleElimination(order.length))
         return fail(
-          `A dupla eliminação precisa de 4, 8, 16 ou 32 participantes (são ${order.length}). Ajuste as inscrições ou use outro formato.`,
+          `A dupla eliminação aceita de 3 a 64 participantes (são ${order.length}). Ajuste as inscrições ou use outro formato.`,
         );
-      if (stage.grandFinalMode !== "SINGLE")
+      if (stage.grandFinalMode === "NONE")
         return fail(
-          "Por enquanto a dupla eliminação só suporta a final única. Escolha Final única nas regras da fase.",
+          "A dupla eliminação precisa de uma final. Escolha Final única ou Final com jogo extra nas regras da fase.",
         );
     }
 
@@ -569,6 +595,15 @@ export async function generateMatchesAction(
         label: m.label,
         homeEntryId: m.homeEntryId,
         awayEntryId: m.awayEntryId,
+        // A bye is a win already: the participant sits out and gets the walkover points.
+        ...(m.bye
+          ? {
+              status: "WALKOVER" as const,
+              winnerEntryId: m.homeEntryId,
+              homeScore: event.rules?.woScoreFor ?? 0,
+              awayScore: event.rules?.woScoreAgainst ?? 0,
+            }
+          : {}),
       })),
     });
     for (const m of data) {
@@ -642,6 +677,8 @@ const resultSchema = z
       )
       .max(9)
       .optional(),
+    /** How the match was won (combat sports), optional. */
+    winMethod: z.enum(WIN_METHODS).nullable().optional(),
     /** Games of a knockout tie played as a series (best of N or two legs). */
     games: z
       .array(
@@ -672,6 +709,20 @@ async function loadMatch(eventId: string, matchId: string) {
   return match ? { ...ctx, match } : null;
 }
 
+const DECISIVE_LABEL = "Final decisiva";
+
+/**
+ * Grand final with a reset: the extra game exists only if the losers bracket
+ * champion wins the first one (both would then have one loss).
+ */
+const isResetGrandFinal = (m: {
+  label: string | null;
+  stageRun: { stage: { type: string; grandFinalMode: string } };
+}) =>
+  m.stageRun.stage.type === "DOUBLE_ELIM" &&
+  m.stageRun.stage.grandFinalMode === "RESET" &&
+  m.label === "Final";
+
 const playedStatuses = ["FINISHED", "WALKOVER"];
 
 export async function saveResultAction(
@@ -698,6 +749,18 @@ export async function saveResultAction(
     match.stageRun.stage.type === "DOUBLE_ELIM";
   const setsConfig = setsConfigOf(rules);
   const series = knockout ? seriesConfigOf(rules) : null;
+
+  const resetFinal = isResetGrandFinal(match);
+  if (resetFinal) {
+    const decisive = await prisma.match.findFirst({
+      where: { stageRunId: match.stageRunId, label: DECISIVE_LABEL },
+      select: { status: true },
+    });
+    if (decisive && decisive.status !== "SCHEDULED")
+      return fail(
+        "A final decisiva já foi disputada. Desfaça o resultado dela antes de corrigir esta.",
+      );
+  }
 
   if (playedStatuses.includes(match.status)) {
     const downstream = [match.nextMatchId, match.loserMatchId].filter(
@@ -806,6 +869,7 @@ export async function saveResultAction(
         homePenalties: homePen,
         awayPenalties: awayPen,
         winnerEntryId: winner,
+        winMethod: r.walkover ? null : (r.winMethod ?? null),
       },
     });
     // The sets of a corrected result replace the old ones.
@@ -830,6 +894,24 @@ export async function saveResultAction(
           awayPoints: x.away,
         })),
       });
+    }
+    if (resetFinal) {
+      // The extra game only exists when the losers bracket champion won.
+      await tx.match.deleteMany({
+        where: { stageRunId: match.stageRunId, label: DECISIVE_LABEL },
+      });
+      if (winner && winner === match.awayEntryId) {
+        await tx.match.create({
+          data: {
+            stageRunId: match.stageRunId,
+            round: match.round + 1,
+            position: 0,
+            label: DECISIVE_LABEL,
+            homeEntryId: match.homeEntryId,
+            awayEntryId: match.awayEntryId,
+          },
+        });
+      }
     }
     if (knockout && winner) {
       if (match.nextMatchId && match.nextSlot) {
@@ -893,6 +975,16 @@ export async function clearResultAction(
     await prisma.matchGame.deleteMany({ where: { matchId: match.id } });
     return refresh(eventId);
   }
+  if (isResetGrandFinal(match)) {
+    const decisive = await prisma.match.findFirst({
+      where: { stageRunId: match.stageRunId, label: DECISIVE_LABEL },
+      select: { status: true },
+    });
+    if (decisive && decisive.status !== "SCHEDULED")
+      return fail(
+        "A final decisiva já foi disputada. Desfaça o resultado dela primeiro.",
+      );
+  }
   const downstream = [match.nextMatchId, match.loserMatchId].filter(
     (x): x is string => !!x,
   );
@@ -913,6 +1005,10 @@ export async function clearResultAction(
     });
     await tx.matchSet.deleteMany({ where: { matchId: match.id } });
     await tx.matchGame.deleteMany({ where: { matchId: match.id } });
+    if (isResetGrandFinal(match))
+      await tx.match.deleteMany({
+        where: { stageRunId: match.stageRunId, label: DECISIVE_LABEL },
+      });
     await tx.match.update({
       where: { id: match.id },
       data: {
@@ -922,6 +1018,7 @@ export async function clearResultAction(
         homePenalties: null,
         awayPenalties: null,
         winnerEntryId: null,
+        winMethod: null,
       },
     });
     if (match.nextMatchId && match.nextSlot)
@@ -985,26 +1082,51 @@ export async function generateNextRoundAction(
       faced.get(m.awayEntryId)?.add(m.homeEntryId);
     }
   }
+  const sat = new Set(
+    detail.matches
+      .filter((m) => !m.awayEntryId && m.homeEntryId)
+      .map((m) => m.homeEntryId as string),
+  );
   const result = pairSwiss(
     rows.map((r) => ({
       id: r.id,
       points: r.points,
       rank: r.position,
       played: faced.get(r.id) ?? new Set<string>(),
+      hadBye: sat.has(r.id),
     })),
   );
   if ("error" in result) return fail(result.error);
 
   await prisma.match.createMany({
-    data: result.pairs.map((p, i) => ({
-      stageRunId: run.id,
-      groupId: null,
-      round: current + 1,
-      position: i,
-      label: `Rodada ${current + 1}`,
-      homeEntryId: p.home,
-      awayEntryId: p.away,
-    })),
+    data: [
+      ...result.pairs.map((p, i) => ({
+        stageRunId: run.id,
+        groupId: null,
+        round: current + 1,
+        position: i,
+        label: `Rodada ${current + 1}`,
+        homeEntryId: p.home,
+        awayEntryId: p.away,
+      })),
+      ...(result.bye
+        ? [
+            {
+              stageRunId: run.id,
+              groupId: null,
+              round: current + 1,
+              position: result.pairs.length,
+              label: `Rodada ${current + 1} (folga)`,
+              homeEntryId: result.bye,
+              awayEntryId: null,
+              status: "WALKOVER" as const,
+              winnerEntryId: result.bye,
+              homeScore: event.rules?.woScoreFor ?? 0,
+              awayScore: event.rules?.woScoreAgainst ?? 0,
+            },
+          ]
+        : []),
+    ],
   });
   return refresh(eventId);
 }
@@ -1018,6 +1140,41 @@ export async function completeStageAction(
   const { run, event } = ctx;
   const { stage } = run;
   if (run.status !== "LIVE") return fail("A fase não está em andamento.");
+
+  if (stage.type === "PERFORMANCE") {
+    const cfg = perfConfigOf(event.rules);
+    const full = await getRunDetail(run.stageId, run.categoryId);
+    if (!cfg || !full) return fail("Fase não encontrada.");
+    const parts = full.entries.map((e) => ({
+      id: e.id,
+      attempts: e.attempts.map((a) => ({
+        number: a.number,
+        status: a.status,
+        value: a.value,
+      })),
+    }));
+    const opts = {
+      tiebreakers: tiebreakerKeys(event.rules),
+      lotsSeed: run.drawSeed ?? 1,
+    };
+    for (const e of full.entries) {
+      const need = maxAttemptsFor(cfg, parts, e.id, opts);
+      const has = e.attempts.length;
+      if (has < need)
+        return fail(
+          `Faltam tentativas de ${entryName(e)} (${has} de ${need}).`,
+        );
+    }
+    if (event.stages.some((s) => s.order === stage.order + 1))
+      return fail(
+        "Por enquanto a prova por desempenho deve ser a última fase do evento.",
+      );
+    await prisma.stageRun.update({
+      where: { id: run.id },
+      data: { status: "DONE" },
+    });
+    return refresh(eventId);
+  }
 
   const detail = await getRunDetail(run.stageId, run.categoryId);
   if (!detail) return fail("Fase não encontrada.");

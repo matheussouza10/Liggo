@@ -92,6 +92,7 @@ export function MatchControl({
   knockout,
   penalties,
   setsConfig,
+  recordMethod,
 }: {
   eventId: string;
   snapshot: MatchSnapshot;
@@ -102,6 +103,7 @@ export function MatchControl({
   knockout: boolean;
   penalties: boolean;
   setsConfig: SetsConfig | null;
+  recordMethod: boolean;
 }) {
   const s = snapshot;
   const live = s.state === "LIVE";
@@ -133,6 +135,7 @@ export function MatchControl({
     label: s.label,
     sets: s.sets,
     games: [],
+    winMethod: s.winMethod,
     homeId: "home",
     awayId: "away",
     homeName: s.home,
@@ -416,6 +419,7 @@ export function MatchControl({
           penalties={penalties}
           setsConfig={setsConfig}
           series={null}
+          recordMethod={recordMethod}
           onClose={() => setFinishing(false)}
         />
       ) : null}

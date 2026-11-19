@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  WIN_METHOD_LABELS,
+  type WinMethodKey,
+} from "@/lib/competition/win-method";
 import { MapPinIcon, UserIcon, WifiOffIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EventIcon } from "@/components/competition/event-icon";
@@ -155,6 +159,12 @@ export function LiveMatch({ initial }: { initial: MatchSnapshot }) {
             {m.away ?? "A definir"}
           </p>
         </div>
+        {m.winMethod ? (
+          <p className="mt-3 text-center text-sm text-muted-foreground">
+            Vitória:{" "}
+            {WIN_METHOD_LABELS[m.winMethod as WinMethodKey] ?? m.winMethod}
+          </p>
+        ) : null}
         {m.sets.length ? (
           <p
             data-testid="public-sets"

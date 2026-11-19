@@ -1,3 +1,6 @@
+import { isCombatSport } from "@/lib/competition/win-method";
+import { perfConfigOf } from "@/lib/competition/performance";
+import { buildPerfView } from "@/lib/competition/performance-view";
 import { seriesConfigOf } from "@/lib/competition/series";
 import { setsConfigOf } from "@/lib/competition/sets";
 import { ArrowLeftIcon } from "lucide-react";
@@ -46,6 +49,7 @@ export default async function StagePage({
     event.categories.find((c) => c.id === categoryParam) ?? event.categories[0];
   if (!stage || !category) notFound();
 
+  const combat = isCombatSport(event.sport.category.name);
   const rules = standingsRules(event);
   const supported = isSupportedStage(stage.type);
   const run = supported ? await getRunDetail(stage.id, category.id) : null;
@@ -59,8 +63,15 @@ export default async function StagePage({
         tables.ignored,
         stage.type,
         event.stages[stageIndex - 1]?.name ?? null,
+        combat && !stage.thirdPlaceMatch,
       )
     : null;
+
+  const perfConfig = perfConfigOf(event.rules);
+  const performance =
+    run && stage.type === "PERFORMANCE" && perfConfig && event.rules
+      ? buildPerfView(run, perfConfig, event.rules)
+      : null;
 
   const registrations = !run
     ? await prisma.registration.findMany({
@@ -123,7 +134,8 @@ export default async function StagePage({
               | "GROUPS"
               | "SINGLE_ELIM"
               | "DOUBLE_ELIM"
-              | "SWISS",
+              | "SWISS"
+              | "PERFORMANCE",
             swissRounds: stage.swissRounds,
             advancingPerGroup: stage.advancingPerGroup,
             seeding: stage.seeding,
@@ -141,6 +153,8 @@ export default async function StagePage({
               ? seriesConfigOf(event.rules)
               : null
           }
+          performance={performance}
+          combat={combat}
           eventStart={event.startDate.toISOString().slice(0, 10)}
           isFirstStage={stageIndex === 0}
           hasNextStage={stageIndex < event.stages.length - 1}

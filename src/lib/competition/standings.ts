@@ -9,6 +9,8 @@ export type FinishedMatch = {
   walkover: boolean;
   /** Only needed for walkovers (the score alone may be equal in odd rules). */
   winnerId: string | null;
+  /** The home side sat out the round (swiss with an odd field): a win with no opponent. */
+  bye?: boolean;
   /** Sets played, from the home side's point of view (scoring by sets only). */
   sets?: { home: number; away: number }[];
 };
@@ -122,6 +124,15 @@ function statsOf(
     ]),
   );
   for (const m of matches) {
+    if (m.bye) {
+      const s = map.get(m.homeId);
+      if (s) {
+        s.played++;
+        s.wins++;
+        s.points += rules.woPointsAwarded;
+      }
+      continue;
+    }
     if (!set.has(m.homeId) || !set.has(m.awayId)) continue;
     const homeWon = m.walkover
       ? m.winnerId === m.homeId
@@ -173,6 +184,7 @@ export function computeStandings(
     { opponent: string; result: "W" | "D" | "L" }[]
   >(ids.map((id) => [id, []]));
   for (const m of matches) {
+    if (m.bye) continue;
     if (!faced.has(m.homeId) || !faced.has(m.awayId)) continue;
     const homeWon = m.walkover
       ? m.winnerId === m.homeId
@@ -180,18 +192,14 @@ export function computeStandings(
     const awayWon = m.walkover
       ? m.winnerId === m.awayId
       : m.awayScore > m.homeScore;
-    faced
-      .get(m.homeId)!
-      .push({
-        opponent: m.awayId,
-        result: homeWon ? "W" : awayWon ? "L" : "D",
-      });
-    faced
-      .get(m.awayId)!
-      .push({
-        opponent: m.homeId,
-        result: awayWon ? "W" : homeWon ? "L" : "D",
-      });
+    faced.get(m.homeId)!.push({
+      opponent: m.awayId,
+      result: homeWon ? "W" : awayWon ? "L" : "D",
+    });
+    faced.get(m.awayId)!.push({
+      opponent: m.homeId,
+      result: awayWon ? "W" : homeWon ? "L" : "D",
+    });
   }
   const opponentPoints = (id: string) =>
     (faced.get(id) ?? []).map((f) => ({

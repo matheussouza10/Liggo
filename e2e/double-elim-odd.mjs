@@ -1,0 +1,55 @@
+import { chromium } from "playwright-core";
+import { execSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+const DB="postgresql://postgres:admin@localhost:5432/liggo"; const sql=q=>execSync(`psql "${DB}" -At -c "${q.replace(/"/g,'\\"')}"`).toString().trim();
+const BASE="http://localhost:3000", PASS="Senha-de-teste-123", T=Date.now(); const rid=p=>p+randomBytes(8).toString("hex");
+let fails=0; const ok=(n,c,d="")=>{ if(!c) fails++; console.log(c?"PASS":"FAIL",n,d?`(${d})`:"") };
+const vis=async(loc,t=8000)=>loc.first().waitFor({timeout:t}).then(()=>true).catch(()=>false);
+const b=await chromium.launch({executablePath:"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",headless:true});
+const errors=[]; const A=await (await b.newContext({viewport:{width:1440,height:1500}})).newPage(); A.setDefaultTimeout(12000); A.on("pageerror",e=>errors.push(String(e).slice(0,200)));
+const o=A.getByLabel.bind(A); A.getByLabel=(l,x)=>o(l,x).filter({visible:true});
+await A.goto(BASE+"/signup",{waitUntil:"networkidle"}); await A.getByLabel("Nome da organização").fill(`Sets ${T}`); await A.getByLabel("Nome do responsável").fill("Dono Sets"); await A.getByLabel("E-mail").fill(`st.${T}@example.com`); await A.getByLabel("Senha",{exact:true}).fill(PASS); await A.getByLabel("Confirmar senha").fill(PASS); await A.getByRole("checkbox").check(); await A.getByRole("button",{name:/Criar conta/}).click(); await A.waitForURL(u=>new URL(u).pathname==="/dashboard");
+const org=sql(`select "organizationId" from users where email='st.${T}@example.com'`), u=sql(`select id from users where email='st.${T}@example.com'`);
+const sport=sql(`select id from sports where name ilike '%futsal%' and active limit 1`), type=sql(`select id from event_types limit 1`), fmt=sql(`select id from competition_formats limit 1`);
+const E=rid("ev"); sql(`insert into events(id,"organizationId","createdById",name,"startDate","endDate","eventTypeId","formatId","sportId","participationType","locationName","publicVisible","updatedAt") values('${E}','${org}','${u}','Copa Vôlei ${T}','2026-12-05','2026-12-06','${type}','${fmt}','${sport}','TEAM','Ginásio',true,now())`);
+const cat=rid("c"); sql(`insert into event_categories(id,"eventId",name,gender,"rosterMin","sortOrder","updatedAt") values('${cat}','${E}','Geral','MIXED',1,0,now())`);
+const FORMAT=process.argv[2]||"BEST_OF";
+const tb=JSON.stringify([{key:"POINTS",scope:"OVERALL"},{key:"DRAW_LOTS",scope:"OVERALL"}]);
+sql(`insert into event_rules(id,"eventId","scoringModel","winPoints","drawPoints","lossPoints","allowDraw",tiebreakers,"woScoreFor","woScoreAgainst","woPointsAwarded","matchFormat","bestOf","awayGoals",penalties,"updatedAt") values('${rid("r")}','${E}','POINTS',3,1,0,false,'${tb}'::jsonb,3,0,3,'${FORMAT}',${FORMAT==="BEST_OF"?3:"null"},${FORMAT==="HOME_AWAY"?"true":"false"},true,now())`);
+const st=rid("s"); sql(`insert into event_stages(id,"eventId","order",name,type,"roundRobinLegs","thirdPlaceMatch","grandFinalMode",seeding,"updatedAt") values('${st}','${E}',1,'Dupla eliminação','DOUBLE_ELIM',1,false,'SINGLE','RANDOM',now())`);
+const run=rid("ru"); sql(`insert into stage_runs(id,"stageId","categoryId",status,"drawSeed","drawMode","updatedAt") values('${run}','${st}','${cat}','DRAWN',1,'RANDOM',now())`);
+const NT=Number(process.argv[3]||5); const names=Array.from({length:NT},(_,i)=>"Time "+"ABCDEFGHIJKL"[i]), en=[];
+for(const [i,n] of names.entries()){ const t=rid("tm"), r=rid("rg"), e=rid("en"); en.push(e); sql(`insert into teams(id,"organizationId",name,"updatedAt") values('${t}','${org}','${n} ${T}',now())`); sql(`insert into registrations(id,"eventId","categoryId","teamId","createdById","updatedAt") values('${r}','${E}','${cat}','${t}','${u}',now())`); sql(`insert into stage_entries(id,"stageRunId","registrationId",position,seed) values('${e}','${run}','${r}',${i},${i+1})`); }
+const poll=async(fn,t=8000)=>{ const end=Date.now()+t; while(Date.now()<end){ if(await fn()) return true; await new Promise(r=>setTimeout(r,200)); } return false; };
+const dlg=()=>A.getByRole("dialog"); const nm=l=>`Time ${l} ${T}`;
+const go=async()=>{ await A.goto(`${BASE}/events/${E}/stages/${st}`,{waitUntil:"networkidle"}); };
+const play=async(h,a,sh,sa,last=false)=>{ await go(); const btn=A.getByRole("button",{name:new RegExp(`^Resultado de Time ${h} .* x Time ${a} `)}); await (last?btn.last():btn.first()).click(); await dlg().waitFor(); await dlg().locator("#score-home").fill(String(sh)); await dlg().locator("#score-away").fill(String(sa)); await dlg().getByRole("button",{name:"Salvar resultado"}).click(); await dlg().waitFor({state:"detached"}); };
+const count=()=>sql(`select count(*) from matches where "stageRunId"='${run}'`);
+const N=Number(process.argv[3]||5);
+const MODE=process.argv[4]||"SINGLE";
+await go(); await A.getByRole("button",{name:"Gerar jogos"}).click(); await vis(A.getByRole("tab",{name:"Jogos"}));
+ok(`com ${N} participantes gera ${2*N-2} jogos (2n-2)`, count()===String(2*N-2));
+ok("os dois melhores cabeças pulam a 1ª rodada (só os 4 piores jogam)", sql(`select count(*) from matches m where m."stageRunId"='${run}' and m.label ilike 'Quartas%' or (m."stageRunId"='${run}' and m.round=1)`)!=="0");
+const nameOf=id=>sql(`select t.name from stage_entries e join registrations r on r.id=e."registrationId" join teams t on t.id=r."teamId" where e.id='${id}'`).replace(` ${T}`,"");
+let guard=0;
+while(guard++<40){
+  const next=sql(`select m.id||'|'||m."homeEntryId"||'|'||m."awayEntryId" from matches m where m."stageRunId"='${run}' and m.status='SCHEDULED' and m."homeEntryId" is not null and m."awayEntryId" is not null order by m.round, m.position limit 1`);
+  if(!next) break;
+  const [mid,he,ae]=next.split("|"); const h=nameOf(he), a=nameOf(ae);
+  const idx=Number(sql(`select count(*) from matches m where m."stageRunId"='${run}' and m.status<>'SCHEDULED' and ((m."homeEntryId"='${he}' and m."awayEntryId"='${ae}') or (m."homeEntryId"='${ae}' and m."awayEntryId"='${he}'))`));
+  await go(); const btn=A.getByRole("button",{name:new RegExp(`^Resultado de (${h} .* x ${a}|${a} .* x ${h}) `)});
+  await btn.nth(idx).click(); await dlg().waitFor();
+  const homeWins=h<a; await dlg().locator("#score-home").fill(homeWins?"1":"0"); await dlg().locator("#score-away").fill(homeWins?"0":"1");
+  await dlg().getByRole("button",{name:"Salvar resultado"}).click(); await dlg().waitFor({state:"detached"});
+  if(MODE==="RESET"){ await A.waitForTimeout(150); }
+}
+ok("todos os jogos foram jogados pela interface, na ordem em que ficaram disponíveis", sql(`select count(*) from matches where "stageRunId"='${run}' and status='SCHEDULED'`)==="0" && sql(`select count(*) from matches where "stageRunId"='${run}'`)==String(2*N-2));
+await go();
+ok("o time A é o campeão invicto", await vis(A.getByText(/Campeão: Time A/)));
+const losses=sql(`select string_agg(t.name||':'||(select count(*) from matches m where m."stageRunId"='${run}' and m."winnerEntryId" is not null and m."winnerEntryId"<>e.id and (m."homeEntryId"=e.id or m."awayEntryId"=e.id)),',' order by t.name) from stage_entries e join registrations r on r.id=e."registrationId" join teams t on t.id=r."teamId" where e."stageRunId"='${run}'`).replace(new RegExp(` ${T}`,"g"),"");
+ok("só o campeão fica sem derrota; todos os outros foram eliminados com exatamente 2", losses.split(",").every(x=>x.startsWith("Time A:")?x.endsWith(":0"):x.endsWith(":2")), losses);
+await A.getByRole("button",{name:"Concluir fase"}).click();
+ok("concluir encerra a fase", await poll(async()=>sql(`select status from stage_runs where id='${run}'`)==="DONE"));
+sql(`update events set "publicVisible"=false where id='${E}'`);
+ok("sem erros de JavaScript", errors.length===0, errors.join(" | "));
+console.log(fails===0?"TODOS PASSARAM":`${fails} FALHAS`); await b.close();

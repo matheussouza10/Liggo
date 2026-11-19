@@ -1,3 +1,4 @@
+import { isCombatSport } from "@/lib/competition/win-method";
 import { setsConfigOf } from "@/lib/competition/sets";
 import { ArrowLeftIcon } from "lucide-react";
 import type { Metadata } from "next";
@@ -28,6 +29,11 @@ export default async function MatchPage({
     select: { penalties: true, scoringModel: true, sportConfig: true },
   });
 
+  const sport = await prisma.event.findUnique({
+    where: { id },
+    select: { sport: { select: { category: { select: { name: true } } } } },
+  });
+
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div>
@@ -52,6 +58,7 @@ export default async function MatchPage({
         knockout={data.knockout}
         penalties={rules?.penalties ?? false}
         setsConfig={setsConfigOf(rules)}
+        recordMethod={isCombatSport(sport?.sport.category.name)}
       />
     </div>
   );

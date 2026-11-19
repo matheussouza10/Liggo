@@ -1,4 +1,5 @@
 import { originLabel } from "./pairings";
+import { podiumOf } from "./win-method";
 import { entryName, type RunDetail } from "./queries";
 import type { TableView } from "./run-standings";
 
@@ -32,6 +33,8 @@ export type MatchView = {
   awayPenalties: number | null;
   /** Score of each set, when the sport is scored by sets. */
   sets: { home: number; away: number }[];
+  /** How it was won, for combat sports. */
+  winMethod: string | null;
   /** Games of a tie played as a series (best of N or two legs). */
   games: { home: number; away: number }[];
   winnerId: string | null;
@@ -50,6 +53,8 @@ export type RunView = {
   tables: TableView[];
   ignored: string[];
   champion: string | null;
+  /** First, second and third of a decided knockout. */
+  podium: { place: 1 | 2 | 3; name: string; note: string | null }[];
   results: number;
   manualPairing: boolean;
 };
@@ -60,6 +65,7 @@ export function toRunView(
   ignored: string[],
   stageType: string,
   previousStageName: string | null = null,
+  sharedBronze = false,
 ): RunView {
   const names = new Map(run.entries.map((e) => [e.id, entryName(e)]));
   const matches: MatchView[] = run.matches.map((m) => ({
@@ -78,6 +84,7 @@ export function toRunView(
     homePenalties: m.homePenalties,
     awayPenalties: m.awayPenalties,
     sets: m.sets.map((x) => ({ home: x.homePoints, away: x.awayPoints })),
+    winMethod: m.winMethod,
     games: m.games.map((x) => ({ home: x.homeScore, away: x.awayScore })),
     winnerId: m.winnerEntryId,
     scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
@@ -85,13 +92,17 @@ export function toRunView(
     refereeId: m.refereeId,
     refereeName: m.referee?.name ?? null,
   }));
-  const final = matches.find((m) => m.label === "Final");
+  // A grand final with a reset has an extra game: it decides when it exists.
+  const decisive = matches.find((m) => m.label === "Final decisiva");
+  const final = decisive ?? matches.find((m) => m.label === "Final");
   const champion =
     stageType === "SINGLE_ELIM" || stageType === "DOUBLE_ELIM"
       ? final?.winnerId
         ? (names.get(final.winnerId) ?? null)
         : null
-      : run.status === "DONE" && tables.length === 1
+      : run.status === "DONE" &&
+          tables.length === 1 &&
+          stageType !== "PERFORMANCE"
         ? (tables[0].rows[0]?.name ?? null)
         : null;
   return {
@@ -114,7 +125,27 @@ export function toRunView(
     tables,
     ignored,
     champion,
-    results: matches.filter((m) => m.status !== "SCHEDULED").length,
+    podium:
+      stageType === "SINGLE_ELIM" || stageType === "DOUBLE_ELIM"
+        ? podiumOf(
+            matches.map((m) => ({
+              label: m.label,
+              homeId: m.homeId,
+              awayId: m.awayId,
+              winnerId: m.winnerId,
+            })),
+            { double: stageType === "DOUBLE_ELIM", sharedBronze },
+          ).map((p) => ({
+            place: p.place,
+            name: names.get(p.id) ?? "",
+            note: p.note,
+          }))
+        : [],
+    // A bye (sitting out a swiss round) is not a result somebody entered.
+    results: matches.filter(
+      (m) =>
+        m.status !== "SCHEDULED" && !(m.status === "WALKOVER" && !m.awayId),
+    ).length,
     manualPairing: run.manualPairing,
   };
 }

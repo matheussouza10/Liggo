@@ -12,6 +12,7 @@ export const SUPPORTED_STAGE_TYPES = [
   "SINGLE_ELIM",
   "DOUBLE_ELIM",
   "SWISS",
+  "PERFORMANCE",
 ] as const;
 export const isSupportedStage = (type: string) =>
   (SUPPORTED_STAGE_TYPES as readonly string[]).includes(type);
@@ -21,7 +22,9 @@ export function getEventForStages(organizationId: string, id: string) {
   return prisma.event.findFirst({
     where: { id, organizationId },
     include: {
-      sport: { select: { id: true, name: true } },
+      sport: {
+        select: { id: true, name: true, category: { select: { name: true } } },
+      },
       rules: true,
       stages: { orderBy: { order: "asc" } },
       categories: {
@@ -40,6 +43,7 @@ export function getRunDetail(stageId: string, categoryId: string) {
       entries: {
         orderBy: { position: "asc" },
         include: {
+          attempts: { orderBy: { number: "asc" } },
           registration: {
             include: {
               team: { select: { name: true, color: true } },

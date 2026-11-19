@@ -9,6 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Browser and unit test scripts (plain scripts, not app code).
+    "e2e/**",
+    "unit/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

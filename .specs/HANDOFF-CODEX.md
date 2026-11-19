@@ -1,0 +1,28 @@
+# Prompt de continuidade (para colar no Codex)
+
+Você vai continuar o desenvolvimento do **Liggo**, SaaS multi-organização de competições esportivas (Next.js 16.4 App Router com Cache Components, TypeScript, Prisma 7 + PostgreSQL com adapter-pg, shadcn "base-nova", Tailwind 4). Repositório: github.com/matheussouza10/Liggo, branch `main`. O dono (Matheus) fala português do Brasil: **textos da interface em pt-BR, rotas e código em inglês**. Leia antes de começar: `.specs/features/competition-engines/spec.md`, `.specs/project/ROADMAP.md`, `README.md` e `.env.example`.
+
+## Prioridade definida pelo dono
+Acima de tudo: **todos os modos de evento (271 modalidades, ~70 formatos do catálogo) funcionando de ponta a ponta**, com categorias, jogos, resultados e classificação. Só depois: relatórios/PDF, pagamento (provedor provável: Asaas, ainda não contratado), notificações, etc. Pense também em telas que facilitem a vida do organizador (painel do evento com checklist, calendário visual com conflitos, agenda automática, modo mesa no celular, avisos de inconsistência antes de gerar jogos, assistente de criação de evento).
+
+## Estado atual
+Prontas e verificadas (lint, build, testes de navegador): Fase 1 sets, Fase 2 formatos de chave (melhor de N, ida e volta, dupla eliminação, suíço), Fase 3 provas por desempenho, Fase 4 luta e duelo (final com jogo extra, método da vitória, pódio), Fase 5 circuito e ranking, suíço com folga. Detalhes e decisões em `.specs/features/competition-engines/spec.md`.
+
+**Fase 6 (auditoria) está em andamento.** `unit/audit-presets.ts` (rode `npx tsx unit/audit-presets.ts`) valida os presets e lista lacunas. Próximas tarefas, em ordem:
+1. ~~Dupla eliminação com qualquer número de participantes~~ (feita: 3 a 64, com folgas).
+2. ~~Matriz preset × tamanho de campo~~ (feita em `unit/audit-matrix.ts`). A matriz por **modalidade** também foi feita (`unit/audit-sports.ts`, 5 presets novos). Falta a encadeamentos (grupos para mata-mata com qualquer número de classificados).
+3. **Repescagem de judô** (perdedores para o bronze) e **desenho em árvore da dupla eliminação**.
+4. **Salto em altura com barra progressiva** (JUMPS_AT_FINAL_HEIGHT, TOTAL_FAILURES), **baterias/séries eliminatórias** nas provas, **revezamento por soma de tempos**, **série (melhor de N/ida e volta) ao vivo**.
+5. Depois do motor: telas de apoio ao organizador, relatórios/PDF, pagamento (Asaas), SMTP real, revisão jurídica, notificações.
+
+Pendente de commit: tudo desde o commit `7f555be` (Fases 3, 4, 5 e correções, e as pastas `e2e/` e `unit/`). Peça ao dono para commitar.
+
+**Instale para rodar os testes de navegador:** `npm i -D playwright-core` (os scripts usam o Chrome em `/Applications/Google Chrome.app`). Scripts com argumento: `series.mjs BEST_OF|HOME_AWAY`, `double-elim.mjs SINGLE`, `double-elim-odd.mjs SINGLE N` (N = 3 a 12 times), `double-elim-reset.mjs SINGLE`, `performance.mjs DISTANCE|TIME`, `combat.mjs SINGLE`, `swiss.mjs SINGLE`; sem argumento: `circuit.mjs`. No zsh use `eval node script.mjs ARG` se montar o comando numa variável.
+
+## Como trabalhar (convenções e armadilhas)
+- Next 16 + Cache Components: páginas dinâmicas precisam de `export const instant = false`; páginas públicas usam `await connection()`. Arquivos `"use server"` só podem exportar funções assíncronas (nada de constantes). Arquivos de página só exportam o conjunto permitido. Next mantém o estado de telas de que você saiu: formulários devem resetar no sucesso e ao sair; em testes, conte só elementos visíveis. `Date.now()` no render viola o lint (use função fora do componente).
+- Prisma: migrações com `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script` para uma pasta com timestamp (remova a linha "Loaded Prisma config" do início do SQL), confira que não há DROP/DELETE destrutivo, depois `prisma migrate deploy` e `prisma generate`. Em dados de teste via SQL, grave timestamps com `now() at time zone 'utc'` (o `now()` do banco é horário local).
+- Lógica de competição pura e testável em `src/lib/competition/*` com teste unitário em `unit/*.ts` (rode com `npx tsx unit/xxx.ts`). Testes de navegador em `e2e/*.mjs` (Playwright, Chrome em `/Applications/Google Chrome.app`): precisam do servidor em `http://localhost:3000` (`npm run dev`); sempre `pkill -f "next dev"; pkill -f "next-server"; rm -f .next/dev/lock` antes de reiniciar e `rm -rf .next/types .next/dev/types; npx next typegen` se `PageProps` sumir. Cada script cria sua própria organização e esconde os eventos de teste ao final. Ao rodar, redirecione para `.out` e confira `grep -c "^PASS"`.
+- Regressão esperada (contagem de PASS): stages 45, live 48, stats 31, chain 14, pairings 23, template 24, sets 18, sets-live 16, rules 34, registration 23, event-manage 38, account 66, public-registration 54; `series.mjs BEST_OF` e `series.mjs HOME_AWAY`, `double-elim.mjs SINGLE`, `double-elim-odd.mjs SINGLE N` (N = 3 a 12 times), `swiss.mjs SINGLE` terminam em "TODOS PASSARAM". Alguns scripts de e2e antigos têm caminhos fixos de máquina; ajuste se necessário.
+- Verifique de verdade (navegador + banco), não só tipos. Mostre falhas honestamente. Não faça commit/push sem o dono pedir. Não apague dados em massa do banco. Mensagens de commit em inglês, estilo convencional.
+- Sistema de e-mail: sem SMTP em desenvolvimento os e-mails vão para a tabela `outbound_emails` e o console. Credenciais: nunca coloque segredos no repositório.

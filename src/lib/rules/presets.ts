@@ -413,7 +413,7 @@ const list: Array<Omit<RulePreset, "rules"> & { rules: Partial<RulesInput> }> =
       key: "circuit_points",
       name: "Circuito por etapas (pontos por posição)",
       description:
-        "Cada etapa dá pontos pela colocação; o ranking soma as etapas. Tabela da Fórmula 1 como exemplo.",
+        "Cada etapa dá pontos pela colocação; o ranking soma as etapas (6 de exemplo: ajuste). Tabela da Fórmula 1 como exemplo.",
       confidence: "PARTIAL",
       source:
         "FIA 2026 Formula 1 General Regulatory Provisions, A2.1.4 e A2.2.1 (coluna de 75% ou mais da distância). O descarte do pior resultado não tem fonte oficial: é requisito de produto.",
@@ -424,7 +424,7 @@ const list: Array<Omit<RulePreset, "rules"> & { rules: Partial<RulesInput> }> =
           kind: "PERFORMANCE",
           metric: "POINTS",
           bestIs: "HIGHEST",
-          attempts: 1,
+          attempts: 6,
           finalists: null,
           extraAttempts: null,
           aggregation: "SUM",
@@ -435,6 +435,120 @@ const list: Array<Omit<RulePreset, "rules"> & { rules: Partial<RulesInput> }> =
         })),
         dropWorst: 0,
         stages: [stage("PERFORMANCE", { name: "Etapas" })],
+      },
+    },
+    {
+      key: "judged_score",
+      name: "Nota dos juízes (ginástica, patinação, saltos, dança...)",
+      description:
+        "Duas rotinas somam a nota; vence a maior soma. Ajuste o número de rotinas ou aparelhos nas tentativas.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. Os códigos de pontuação de cada modalidade (FIG, World Skate, World Aquatics...) não foram lidos na pesquisa.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("COUNTBACK_BEST_ATTEMPT"), tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "POINTS",
+          bestIs: "HIGHEST",
+          attempts: 2,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "SUM",
+        },
+        stages: [stage("PERFORMANCE", { name: "Prova" })],
+      },
+    },
+    {
+      key: "precision_score",
+      name: "Precisão por pontos (tiro, arco, boliche)",
+      description:
+        "Séries de tentativas somadas; vence a maior soma. Desempate pela melhor série.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. Regulamentos de tiro (ISSF), arco (World Archery) e boliche não foram lidos na pesquisa.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("COUNTBACK_BEST_ATTEMPT"), tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "POINTS",
+          bestIs: "HIGHEST",
+          attempts: 3,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "SUM",
+        },
+        stages: [stage("PERFORMANCE", { name: "Prova" })],
+      },
+    },
+    {
+      key: "precision_low",
+      name: "Menor pontuação vence (golfe, minigolfe)",
+      description: "Rodadas somadas; vence o menor total de tacadas.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. Regras do R&A/USGA e desempates de golfe (playoff) não foram lidas na pesquisa.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("COUNTBACK_BEST_ATTEMPT"), tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "POINTS",
+          bestIs: "LOWEST",
+          attempts: 4,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "SUM",
+        },
+        stages: [stage("PERFORMANCE", { name: "Rodadas" })],
+      },
+    },
+    {
+      key: "strength_lifts",
+      name: "Levantamentos (powerlifting, halterofilismo)",
+      description:
+        "3 tentativas de carga em kg; vale a maior carga válida. Falhas entram como sem marca.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. Regras da IPF e da IWF (desempate pelo menor peso corporal) não foram lidas na pesquisa: use sorteio ou ajuste.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("COUNTBACK_BEST_ATTEMPT"), tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "POINTS",
+          bestIs: "HIGHEST",
+          attempts: 3,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "BEST",
+        },
+        stages: [stage("PERFORMANCE", { name: "Prova" })],
+      },
+    },
+    {
+      key: "points_total",
+      name: "Pontuação total (decatlo, heptatlo, CrossFit...)",
+      description:
+        "Cada participante recebe o total de pontos da prova; vence o maior total.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. As tabelas de pontos do decatlo e do heptatlo (World Athletics) não foram lidas na pesquisa: informe o total já calculado.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "POINTS",
+          bestIs: "HIGHEST",
+          attempts: 1,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "BEST",
+        },
+        stages: [stage("PERFORMANCE", { name: "Prova" })],
       },
     },
   ];
@@ -465,22 +579,64 @@ export function suggestPresetKey(
 ): string {
   const name = norm(sportName);
   const category = norm(categoryName);
+  const has = (re: RegExp) => re.test(name);
 
-  if (category.includes("raquete")) return "racket_sets";
+  // Fights, wherever the category puts them (wheelchair fencing, para taekwondo).
   if (category.includes("artes marciais") || category.includes("lutas"))
     return "combat";
+  if (has(/esgrima|taekwondo/)) return "combat";
+  // Racket sports, including the adapted ones.
+  if (category.includes("raquete") || has(/tenis|badminton/))
+    return "racket_sets";
   if (category.includes("e-sports")) return "esports";
-  if (category.includes("mentais"))
-    return name.includes("xadrez") ? "chess_swiss" : "generic";
+  if (category.includes("mentais")) {
+    if (has(/xadrez|damas|^go$|shogi|xiangqi|gamao/)) return "chess_swiss";
+    return has(/cubo/) ? "race_time" : "generic";
+  }
+
+  // Team games that live inside categories of races or scores.
+  if (has(/polo aquatico|roller derby|curling|polo equestre|goalball/))
+    return "generic";
+
+  // Judged by a panel.
+  if (
+    category.includes("ginastica") ||
+    has(
+      /natacao artistica|saltos ornamentais|patinacao artistica|skate park|skate street|bmx freestyle|adestramento|volteio|redeas|fisiculturismo|surfe|bodyboard|wakeboard|salto de esqui/,
+    )
+  )
+    return "judged_score";
+
+  // Precision and strength.
+  if (has(/golfe|minigolfe|disc golf/)) return "precision_low";
+  if (has(/tiro esportivo|tiro com arco|boliche|bolao/))
+    return "precision_score";
+  if (has(/powerlifting|levantamento|halterofilismo/)) return "strength_lifts";
+  if (
+    has(
+      /decatlo|heptatlo|pentatlo|crossfit|strongman|cross training|fitness funcional|calistenia|street workout/,
+    )
+  )
+    return "points_total";
+
+  if (category.includes("motorizados")) return "circuit_points";
 
   if (category.includes("atletismo")) {
-    if (name.includes("altura") || name.includes("vara"))
-      return "athletics_height";
-    if (/(salto|arremesso|lancamento)/.test(name)) return "athletics_distance";
+    if (has(/altura|vara/)) return "athletics_height";
+    if (has(/salto|arremesso|lancamento/)) return "athletics_distance";
     return "race_time";
   }
-  if (category.includes("aquaticos") || category.includes("ciclismo"))
+  if (
+    /aquaticos|ciclismo|inverno|aventura|multiesportes|equestres/.test(category)
+  )
     return "race_time";
+  // Adapted sports follow their base sport (below); the timed ones are races.
+  if (
+    category.includes("paralimpicos") &&
+    has(/atletismo|natacao|paraciclismo/)
+  )
+    return "race_time";
+  if (has(/hyrox|corrida fitness/)) return "race_time";
 
   if (/^basquete/.test(name)) return "basketball_fiba";
   if (/^volei/.test(name)) return "volleyball_fivb";

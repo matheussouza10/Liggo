@@ -52,12 +52,13 @@ export function buildTables(
         (m) =>
           (groupId === null ? true : m.groupId === groupId) &&
           m.status !== "SCHEDULED" &&
-          m.homeEntryId &&
-          m.awayEntryId,
+          m.homeEntryId,
       )
       .map((m) => ({
         homeId: m.homeEntryId as string,
-        awayId: m.awayEntryId as string,
+        awayId: (m.awayEntryId ?? "") as string,
+        // A walkover with no opponent is a bye.
+        bye: !m.awayEntryId,
         homeScore: m.homeScore ?? 0,
         awayScore: m.awayScore ?? 0,
         walkover: m.status === "WALKOVER",

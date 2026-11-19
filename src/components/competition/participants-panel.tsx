@@ -39,6 +39,7 @@ export function ParticipantsPanel({
   isKnockout,
   canRedraw,
   drawProps,
+  startLabel = "Gerar jogos",
 }: {
   eventId: string;
   runId: string;
@@ -47,6 +48,8 @@ export function ParticipantsPanel({
   isKnockout: boolean;
   canRedraw: boolean;
   drawProps: React.ComponentProps<typeof DrawPanel>;
+  /** What the start button says ("Iniciar prova" for a performance event). */
+  startLabel?: string;
 }) {
   const { pending, error, run: act } = useAction();
   const [confirmReset, setConfirmReset] = useState(false);
@@ -185,7 +188,7 @@ export function ParticipantsPanel({
             ) : (
               <SwordsIcon data-icon="inline-start" />
             )}
-            Gerar jogos
+            {startLabel}
           </Button>
           {canRedraw ? (
             <Button

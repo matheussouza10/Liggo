@@ -4,6 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { BracketTree } from "@/components/competition/bracket-tree";
+import { perfConfigOf } from "@/lib/competition/performance";
+import {
+  buildPerfView,
+  type PerfView,
+} from "@/lib/competition/performance-view";
+import { PerformancePanel } from "@/components/competition/performance-panel";
 import { setsConfigOf } from "@/lib/competition/sets";
 import { StandingsTables } from "@/components/competition/standings-tables";
 import { AutoRefresh } from "@/components/public/auto-refresh";
@@ -68,7 +74,10 @@ export default async function PublicEventPage({
   }[] = [];
   if (rules && selected) {
     for (const stage of event.stages.filter(
-      (s) => s.type !== "SINGLE_ELIM" && s.type !== "DOUBLE_ELIM",
+      (s) =>
+        s.type !== "SINGLE_ELIM" &&
+        s.type !== "DOUBLE_ELIM" &&
+        s.type !== "PERFORMANCE",
     )) {
       const run = await getRunDetail(stage.id, selected.id);
       if (run && run.matches.length)
@@ -76,6 +85,19 @@ export default async function PublicEventPage({
           stage: stage.name,
           tables: runTables(run, rules),
           advancing: stage.advancingPerGroup,
+        });
+    }
+  }
+  // Performance events are ranked by their results, not by matches.
+  const perfConfig = perfConfigOf(event.rules);
+  const performances: { stage: string; view: PerfView }[] = [];
+  if (perfConfig && event.rules && selected) {
+    for (const stage of event.stages.filter((s) => s.type === "PERFORMANCE")) {
+      const run = await getRunDetail(stage.id, selected.id);
+      if (run && run.status !== "DRAWN")
+        performances.push({
+          stage: stage.name,
+          view: buildPerfView(run, perfConfig, event.rules),
         });
     }
   }
@@ -163,6 +185,19 @@ export default async function PublicEventPage({
           </div>
         </section>
       ) : null}
+
+      {performances.map((p) => (
+        <section
+          key={p.stage}
+          aria-label={p.stage}
+          className="flex flex-col gap-4"
+        >
+          <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
+            {p.stage}
+          </h2>
+          <PerformancePanel eventId={event.id} view={p.view} editable={false} />
+        </section>
+      ))}
 
       {league.map((l) => (
         <section

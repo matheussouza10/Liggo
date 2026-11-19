@@ -579,6 +579,18 @@ enum MatchStatus {
   WALKOVER
 }
 
+/// How a head-to-head match was won (combat sports).
+enum WinMethod {
+  POINTS
+  DECISION
+  SUBMISSION
+  KO
+  TKO
+  IPPON
+  DISQUALIFICATION
+  RETIREMENT
+}
+
 enum MatchSlot {
   HOME
   AWAY
@@ -637,12 +649,13 @@ model StageEntry {
   originRank     Int?
   originMatch    Int?
 
-  stageRun     StageRun     @relation(fields: [stageRunId], references: [id], onDelete: Cascade)
-  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
-  group        StageGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  home         Match[]      @relation("MatchHome")
-  away         Match[]      @relation("MatchAway")
-  won          Match[]      @relation("MatchWinner")
+  stageRun     StageRun             @relation(fields: [stageRunId], references: [id], onDelete: Cascade)
+  registration Registration         @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  group        StageGroup?          @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  home         Match[]              @relation("MatchHome")
+  away         Match[]              @relation("MatchAway")
+  won          Match[]              @relation("MatchWinner")
+  attempts     PerformanceAttempt[]
 
   @@unique([stageRunId, registrationId])
   @@index([registrationId])
@@ -665,6 +678,8 @@ model Match {
   homePenalties  Int?
   awayPenalties  Int?
   winnerEntryId  String?
+  /// How it was won (combat sports); null when not recorded.
+  winMethod      WinMethod?
   /// Where the winner goes (knockout) and where the loser goes (third place).
   nextMatchId    String?
   nextSlot       MatchSlot?
@@ -904,4 +919,32 @@ model MatchGame {
 
   @@unique([matchId, number])
   @@map("match_games")
+}
+
+enum AttemptStatus {
+  /// A valid mark.
+  OK
+  /// No mark (foul, missed, did not clear).
+  NM
+  /// Did not finish.
+  DNF
+  /// Did not start.
+  DNS
+  /// Disqualified.
+  DQ
+}
+
+/// One attempt of a participant in a performance event (time, distance, height, points).
+/// The value is in seconds (time), meters (distance, height) or points.
+model PerformanceAttempt {
+  id      String        @id @default(cuid())
+  entryId String
+  number  Int
+  status  AttemptStatus @default(OK)
+  value   Float?
+
+  entry StageEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, number])
+  @@map("performance_attempts")
 }
