@@ -25,6 +25,8 @@ import { formatDay } from "@/lib/events/constants";
 import { getEvent } from "@/lib/events/queries";
 import { PublicToggle } from "@/components/competition/public-toggle";
 import { EventActions } from "@/components/events/event-actions";
+import { EventJourney } from "@/components/events/event-journey";
+import { getJourney } from "@/lib/events/journey-queries";
 import { RegistrationSettings } from "@/components/requests/registration-settings";
 import { appUrl } from "@/lib/mail";
 import { countPendingRequests } from "@/lib/requests/queries";
@@ -74,6 +76,7 @@ export default async function EventPage({
     }),
     countPendingRequests(event.id),
   ]);
+  const journey = await getJourney(event.id);
   const rules = storedRulesToInput(event);
   const summary = rules ? summarizeRules(rules) : null;
 
@@ -124,6 +127,8 @@ export default async function EventPage({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      {journey ? <EventJourney eventId={event.id} journey={journey} /> : null}
 
       <EventActions
         eventId={event.id}

@@ -159,6 +159,15 @@ export function LiveMatch({ initial }: { initial: MatchSnapshot }) {
             {m.away ?? "A definir"}
           </p>
         </div>
+        {m.games.length ? (
+          <p
+            data-testid="public-games"
+            className="mt-3 text-center text-sm text-muted-foreground tabular-nums"
+          >
+            Jogos da série:{" "}
+            {m.games.map((x) => `${x.home}-${x.away}`).join(" · ")}
+          </p>
+        ) : null}
         {m.winMethod ? (
           <p className="mt-3 text-center text-sm text-muted-foreground">
             Vitória:{" "}

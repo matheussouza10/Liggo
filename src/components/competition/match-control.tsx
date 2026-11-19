@@ -58,6 +58,7 @@ import type { MatchView } from "@/lib/competition/view";
 import { cn } from "@/lib/utils";
 import { MatchStatsPanel } from "@/components/stats/match-stats-panel";
 import { EventIcon } from "./event-icon";
+import type { SeriesConfig } from "@/lib/competition/series";
 import type { SetsConfig } from "@/lib/competition/sets";
 import { liveState } from "@/lib/competition/sets";
 import { ResultDialog } from "./matches-panel";
@@ -93,6 +94,7 @@ export function MatchControl({
   penalties,
   setsConfig,
   recordMethod,
+  series,
 }: {
   eventId: string;
   snapshot: MatchSnapshot;
@@ -104,6 +106,8 @@ export function MatchControl({
   penalties: boolean;
   setsConfig: SetsConfig | null;
   recordMethod: boolean;
+  /** Best of N or two legs, when the tie is played over several games. */
+  series: SeriesConfig | null;
 }) {
   const s = snapshot;
   const live = s.state === "LIVE";
@@ -134,7 +138,7 @@ export function MatchControl({
     position: 0,
     label: s.label,
     sets: s.sets,
-    games: [],
+    games: s.games,
     winMethod: s.winMethod,
     homeId: "home",
     awayId: "away",
@@ -418,7 +422,10 @@ export function MatchControl({
           knockout={knockout}
           penalties={penalties}
           setsConfig={setsConfig}
-          series={null}
+          series={series}
+          liveGame={
+            live ? { home: s.scoreHome ?? 0, away: s.scoreAway ?? 0 } : null
+          }
           recordMethod={recordMethod}
           onClose={() => setFinishing(false)}
         />

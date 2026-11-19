@@ -30,6 +30,7 @@ import {
 import {
   formatValue,
   isCircuit,
+  isCumulative,
   STATUS_LABELS,
   type AttemptStatus,
   type PerfMetric,
@@ -75,9 +76,22 @@ export function PerformancePanel({
   const [editing, setEditing] = useState<PerfRowView | null>(null);
   const { config } = view;
   const circuit = isCircuit(config);
+  const bar = view.bar;
+  const relay = isCumulative(config);
   return (
     <section aria-label="Resultados" className="flex flex-col gap-4">
-      {circuit ? (
+      {relay ? (
+        <p className="text-sm text-muted-foreground">
+          {config.attempts} pernas por equipe. O resultado é a soma dos tempos:
+          a equipe só é classificada quando todas as pernas tiverem tempo.
+        </p>
+      ) : bar ? (
+        <p className="text-sm text-muted-foreground">
+          Barra progressiva: lance cada salto com a altura e se passou (O) ou
+          falhou (X). Quem passa uma altura não lança salto nela. Três falhas
+          seguidas eliminam. O resultado é a maior altura saltada.
+        </p>
+      ) : circuit ? (
         <p className="text-sm text-muted-foreground">
           {config.attempts} etapas. Informe a posição de cada participante em
           cada etapa. Pontos por colocação:{" "}
@@ -107,7 +121,9 @@ export function PerformancePanel({
             <TableRow>
               <TableHead className="w-12">#</TableHead>
               <TableHead>Participante</TableHead>
-              <TableHead>{circuit ? "Etapas" : "Tentativas"}</TableHead>
+              <TableHead>
+                {relay ? "Pernas" : circuit ? "Etapas" : "Tentativas"}
+              </TableHead>
               <TableHead className="w-32 text-right">
                 {circuit ? "Pontos" : "Resultado"}
               </TableHead>
@@ -175,6 +191,8 @@ export function PerformancePanel({
           row={editing}
           metric={config.metric}
           circuit={circuit}
+          bar={bar}
+          relay={relay}
           cutNote={!!(config.finalists && config.extraAttempts)}
           attempts={config.attempts}
           onClose={() => setEditing(null)}
@@ -191,6 +209,8 @@ function AttemptsDialog({
   row,
   metric,
   circuit,
+  bar,
+  relay,
   cutNote,
   attempts,
   onClose,
@@ -199,12 +219,17 @@ function AttemptsDialog({
   row: PerfRowView;
   metric: PerfMetric;
   circuit: boolean;
+  bar: boolean;
+  relay: boolean;
   cutNote: boolean;
   attempts: number;
   onClose: () => void;
 }) {
   const { pending, error, setError, run } = useAction();
-  const slots = Math.max(row.maxAttempts, row.attempts.length);
+  // A bar competition has no fixed number of jumps: show what exists plus a free line.
+  const slots = bar
+    ? Math.max(3, row.attempts.length + 1)
+    : Math.max(row.maxAttempts, row.attempts.length);
   const [drafts, setDrafts] = useState<Draft[]>(() =>
     Array.from({ length: slots }, (_, i) => ({
       status: row.attempts[i]?.status ?? "OK",
@@ -221,14 +246,13 @@ function AttemptsDialog({
     setLocalError(null);
     setError(null);
     // Attempts are taken in order: drop the empty ones at the end, none may be empty in the middle.
-    const filled = drafts.map(
-      (d) => d.status !== "OK" || d.value.trim() !== "",
-    );
+    // Which statuses carry a value: a valid mark, or (in a bar competition) a missed jump.
+    const needsValue = (d: Draft) =>
+      d.status === "OK" || (bar && d.status === "NM");
+    const filled = drafts.map((d) => !needsValue(d) || d.value.trim() !== "");
     const last = filled.lastIndexOf(true);
     const list = drafts.slice(0, last + 1);
-    const hole = list.findIndex(
-      (d) => d.status === "OK" && d.value.trim() === "",
-    );
+    const hole = list.findIndex((d) => needsValue(d) && d.value.trim() === "");
     if (hole >= 0)
       return setLocalError(`A tentativa ${hole + 1} está em branco.`);
     run(
@@ -244,9 +268,11 @@ function AttemptsDialog({
           <DialogTitle>{circuit ? "Etapas" : "Tentativas"}</DialogTitle>
           <DialogDescription>
             {row.name}.{" "}
-            {circuit
-              ? "Posição na etapa: 1, 2, 3..."
-              : `${METRIC_HINT[metric]}.`}
+            {bar
+              ? "Altura do salto em metros (ex.: 2,15) e se passou ou falhou."
+              : circuit
+                ? "Posição na etapa: 1, 2, 3..."
+                : `${METRIC_HINT[metric]}.`}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -261,7 +287,13 @@ function AttemptsDialog({
               className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-3"
             >
               <span className="text-sm font-medium">
-                {circuit ? `Etapa ${i + 1}` : `${i + 1}ª`}
+                {bar
+                  ? `Salto ${i + 1}`
+                  : relay
+                    ? `Perna ${i + 1}`
+                    : circuit
+                      ? `Etapa ${i + 1}`
+                      : `${i + 1}ª`}
                 {cutNote && i >= attempts ? " extra" : ""}
               </span>
               <NativeSelect
@@ -274,20 +306,37 @@ function AttemptsDialog({
               >
                 {(Object.keys(STATUS_LABELS) as AttemptStatus[]).map((s) => (
                   <NativeSelectOption key={s} value={s}>
-                    {STATUS_LABELS[s]}
+                    {bar && s === "OK"
+                      ? "Passou a altura (O)"
+                      : bar && s === "NM"
+                        ? "Falhou (X)"
+                        : STATUS_LABELS[s]}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>
               <Input
                 aria-label={`Valor da tentativa ${i + 1}`}
                 value={d.value}
-                disabled={d.status !== "OK"}
+                disabled={d.status !== "OK" && !(bar && d.status === "NM")}
                 onChange={(e) => set(i, { value: e.target.value })}
                 className="h-10 tabular-nums"
                 inputMode="decimal"
               />
             </div>
           ))}
+          {bar ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={() =>
+                setDrafts((d) => [...d, { status: "OK", value: "" }])
+              }
+            >
+              Adicionar salto
+            </Button>
+          ) : null}
           {cutNote && row.maxAttempts === attempts ? (
             <p className="text-xs text-muted-foreground">
               As tentativas extras abrem para os finalistas depois que todos

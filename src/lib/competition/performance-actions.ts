@@ -5,10 +5,12 @@ import { z } from "zod";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import {
+  isBarMode,
   maxAttemptsFor,
   parseAttempt,
   perfConfigOf,
   tiebreakerKeys,
+  validateBar,
 } from "./performance";
 
 export type PerfResult = { ok: true } | { ok: false; error: string };
@@ -103,6 +105,7 @@ export async function savePerformanceAttemptsAction(
     lotsSeed: run.drawSeed ?? 1,
   });
 
+  const bar = isBarMode(cfg, tiebreakerKeys(rules));
   const rows = parsed.data.attempts;
   if (rows.length > limit)
     return fail(
@@ -119,13 +122,19 @@ export async function savePerformanceAttemptsAction(
   }[] = [];
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    if (r.status === "OK") {
+    // In a bar competition a miss also carries the height of the jump.
+    if (r.status === "OK" || (bar && r.status === "NM")) {
       const v = parseAttempt(cfg, r.value);
       if ("error" in v) return fail(`Tentativa ${i + 1}: ${v.error}`);
-      data.push({ entryId, number: i + 1, status: "OK", value: v.value });
+      data.push({ entryId, number: i + 1, status: r.status, value: v.value });
     } else {
       data.push({ entryId, number: i + 1, status: r.status, value: null });
     }
+  }
+
+  if (bar) {
+    const problem = validateBar(data);
+    if (problem) return fail(problem);
   }
 
   await prisma.$transaction([

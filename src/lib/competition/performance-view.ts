@@ -2,6 +2,7 @@ import { entryName, type RunDetail } from "./queries";
 import {
   finalistIds,
   formatValue,
+  isBarMode,
   isCircuit,
   maxAttemptsFor,
   preliminaryDone,
@@ -33,6 +34,8 @@ export type PerfRowView = {
 };
 export type PerfView = {
   config: PerfConfig;
+  /** High jump or pole vault: jumps with a height and a clear or a miss. */
+  bar: boolean;
   rows: PerfRowView[];
   /** Everybody took the attempts all participants take. */
   prelimDone: boolean;
@@ -58,9 +61,11 @@ export function buildPerfView(
   };
   const ranks = rankPerformance(config, parts, opts);
   const finalists = finalistIds(config, parts, opts);
+  const bar = isBarMode(config, tiebreakerKeys(rules));
   const byId = new Map(run.entries.map((e) => [e.id, e]));
   return {
     config,
+    bar,
     prelimDone: preliminaryDone(config, parts),
     rows: ranks.map((r) => {
       const e = byId.get(r.id)!;
@@ -79,11 +84,13 @@ export function buildPerfView(
           status: a.status,
           value: a.value,
           text:
-            a.status !== "OK"
-              ? a.status
-              : isCircuit(config)
-                ? `${a.value}º`
-                : formatValue(config.metric, a.value),
+            bar && a.value !== null && (a.status === "OK" || a.status === "NM")
+              ? `${formatValue("HEIGHT", a.value).replace(" m", "")} ${a.status === "OK" ? "O" : "X"}`
+              : a.status !== "OK"
+                ? a.status
+                : isCircuit(config)
+                  ? `${a.value}º`
+                  : formatValue(config.metric, a.value),
         })),
         maxAttempts: maxAttemptsFor(config, parts, r.id, opts),
         finalist: finalists.has(r.id),

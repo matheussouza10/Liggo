@@ -22,6 +22,7 @@ import type { SetsConfig } from "@/lib/competition/sets";
 import type { DrawEntryProps } from "@/lib/competition/types";
 import type { MatchView, RunView } from "@/lib/competition/view";
 import { BracketView } from "./bracket-view";
+import { DoubleBracketView } from "./double-bracket-view";
 import { DrawPanel } from "./draw-panel";
 import { DrawReveal } from "./draw-reveal";
 import { MatchesPanel } from "./matches-panel";
@@ -229,7 +230,7 @@ export function StageBoard({
                 Jogos
               </TabsTrigger>
             ) : null}
-            {hasMatches && !double ? (
+            {hasMatches ? (
               <TabsTrigger value="table" className="px-4 py-2">
                 {knockout ? "Chave" : "Classificação"}
               </TabsTrigger>
@@ -280,9 +281,18 @@ export function StageBoard({
             </TabsContent>
           ) : null}
 
-          {hasMatches && !double ? (
+          {hasMatches ? (
             <TabsContent value="table" className="pt-4">
-              {knockout ? (
+              {double ? (
+                <DoubleBracketView
+                  matches={view.matches}
+                  onOpen={(m) => {
+                    if (!live || !m.homeId || !m.awayId) return;
+                    setBracketMatch(m);
+                    setTab("matches");
+                  }}
+                />
+              ) : knockout ? (
                 <BracketView
                   matches={view.matches}
                   onOpen={(m) => {

@@ -104,6 +104,52 @@ export const isCircuit = (c: PerfConfig) =>
 export const placePointsFor = (c: PerfConfig, place: number): number =>
   c.placePoints?.find((p) => p.place === place)?.points ?? 0;
 
+/**
+ * Relay and other cumulative times: the result is the sum of every leg, lowest
+ * wins. A team only counts once every leg has a time; a leg that was not
+ * finished voids the team.
+ */
+export const isCumulative = (c: PerfConfig) =>
+  c.metric === "TIME" &&
+  c.aggregation === "SUM" &&
+  c.bestIs === "LOWEST" &&
+  !isCircuit(c);
+
+/**
+ * High jump and pole vault: the bar goes up, each jump is a height with a
+ * clear (O) or a miss (X), three misses in a row end it, and the result is
+ * the highest height cleared.
+ */
+export const isBarMode = (c: PerfConfig, tiebreakers: readonly string[]) =>
+  c.metric === "HEIGHT" &&
+  !isCircuit(c) &&
+  (tiebreakers.includes("JUMPS_AT_FINAL_HEIGHT") ||
+    tiebreakers.includes("TOTAL_FAILURES"));
+
+/** Why a list of jumps is not a legal bar competition, or null. */
+export function validateBar(
+  jumps: readonly { status: AttemptStatus; value: number | null }[],
+): string | null {
+  let misses = 0;
+  let lastHeight = 0;
+  let lastCleared = false;
+  for (let i = 0; i < jumps.length; i++) {
+    const j = jumps[i];
+    if (j.status === "DNS" || j.status === "DQ") continue;
+    if (j.value === null) return `Salto ${i + 1}: informe a altura.`;
+    if (misses >= 3)
+      return `Salto ${i + 1}: o atleta já foi eliminado (3 falhas seguidas).`;
+    if (j.value < lastHeight)
+      return `Salto ${i + 1}: a barra só sobe (a altura anterior foi ${lastHeight}).`;
+    if (lastCleared && j.value === lastHeight)
+      return `Salto ${i + 1}: quem passou a altura ${lastHeight} não salta nela de novo.`;
+    lastHeight = j.value;
+    lastCleared = j.status === "OK";
+    misses = j.status === "OK" ? 0 : misses + 1;
+  }
+  return null;
+}
+
 const valid = (a: Attempt) => a.status === "OK" && a.value !== null;
 
 /** The participant's result from their attempts, or null without a valid mark. */
@@ -111,6 +157,13 @@ export function aggregate(
   c: PerfConfig,
   attempts: readonly Attempt[],
 ): number | null {
+  if (isCumulative(c)) {
+    if (attempts.length < c.attempts || !attempts.every(valid)) return null;
+    return (
+      Math.round(attempts.reduce((t, a) => t + (a.value as number), 0) * 1000) /
+      1000
+    );
+  }
   if (isCircuit(c)) {
     if (!attempts.some(valid)) return null;
     // Every stage counts (a missing result is worth nothing); the worst ones may be dropped.
@@ -138,6 +191,13 @@ export function rowStatus(
   attempts: readonly Attempt[],
 ): PerfRowStatus {
   if (attempts.some((a) => a.status === "DQ")) return "DQ";
+  if (isCumulative(c)) {
+    // Every leg counts: unfinished legs void the team, missing legs keep it waiting.
+    if (attempts.some((a) => a.status === "DNF")) return "DNF";
+    if (attempts.some((a) => a.status === "DNS")) return "DNS";
+    if (attempts.some((a) => a.status === "NM")) return "NM";
+    return attempts.length < c.attempts ? "PENDING" : "OK";
+  }
   if (aggregate(c, attempts) !== null) return "OK";
   if (attempts.length === 0) return "PENDING";
   if (attempts.every((a) => a.status === "DNS")) return "DNS";
@@ -178,6 +238,21 @@ export function rankPerformance(
     status: rowStatus(c, p.attempts),
     value: aggregate(c, p.attempts),
     // Valid marks from best to worst, for the countback.
+    // Bar mode tiebreakers: jumps taken at the best height, misses up to it.
+    bestJumps: (() => {
+      const best = aggregateBest(p.attempts);
+      return best === null
+        ? 0
+        : p.attempts.filter((a) => a.value === best).length;
+    })(),
+    failures: (() => {
+      const best = aggregateBest(p.attempts);
+      return best === null
+        ? 0
+        : p.attempts.filter(
+            (a) => a.status === "NM" && a.value !== null && a.value <= best,
+          ).length;
+    })(),
     places: p.attempts.filter(valid).map((a) => a.value as number),
     marks: p.attempts
       .filter(valid)
@@ -208,6 +283,15 @@ export function rankPerformance(
         if (x === undefined) return 1;
         if (y === undefined) return -1;
         if (x !== y) return dir * (x - y);
+      }
+    }
+    if (isBarMode(c, tb)) {
+      // In the order the rules list them.
+      for (const key of tb) {
+        if (key === "JUMPS_AT_FINAL_HEIGHT" && a.bestJumps !== b.bestJumps)
+          return a.bestJumps - b.bestJumps;
+        if (key === "TOTAL_FAILURES" && a.failures !== b.failures)
+          return a.failures - b.failures;
       }
     }
     return 0;
@@ -250,6 +334,12 @@ export function rankPerformance(
   return out;
 }
 
+/** The highest valid mark, or null. */
+function aggregateBest(attempts: readonly Attempt[]): number | null {
+  const v = attempts.filter(valid).map((a) => a.value as number);
+  return v.length ? Math.max(...v) : null;
+}
+
 /** Whether everyone has taken the attempts all participants take. */
 export const preliminaryDone = (
   c: PerfConfig,
@@ -287,6 +377,8 @@ export function maxAttemptsFor(
   options: { tiebreakers?: readonly string[]; lotsSeed?: number } = {},
 ): number {
   if (isCircuit(c)) return c.attempts;
+  // A bar competition has as many jumps as the bar needs.
+  if (isBarMode(c, options.tiebreakers ?? [])) return 60;
   if (!c.finalists || !c.extraAttempts)
     return c.attempts + (c.extraAttempts ?? 0);
   return (

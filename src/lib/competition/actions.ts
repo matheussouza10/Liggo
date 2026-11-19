@@ -6,7 +6,12 @@ import {
 } from "./double-elim";
 import { evaluateSets, setsConfigOf } from "./sets";
 import { WIN_METHODS } from "./win-method";
-import { maxAttemptsFor, perfConfigOf, tiebreakerKeys } from "./performance";
+import {
+  isBarMode,
+  maxAttemptsFor,
+  perfConfigOf,
+  tiebreakerKeys,
+} from "./performance";
 import { maxSwissRounds, pairSwiss } from "./swiss";
 import { evaluateSeries, seriesConfigOf } from "./series";
 import { randomUUID } from "node:crypto";
@@ -811,6 +816,11 @@ export async function saveResultAction(
             awayScore: g.away,
           })),
         }),
+        // The game that was live is over: the next one starts from zero.
+        prisma.match.update({
+          where: { id: match.id },
+          data: { startedAt: null, liveHome: 0, liveAway: 0 },
+        }),
       ]);
       return refresh(eventId);
     }
@@ -1158,7 +1168,10 @@ export async function completeStageAction(
       lotsSeed: run.drawSeed ?? 1,
     };
     for (const e of full.entries) {
-      const need = maxAttemptsFor(cfg, parts, e.id, opts);
+      // A bar competition ends when the organizer says so: one jump each is enough to close.
+      const need = isBarMode(cfg, opts.tiebreakers)
+        ? 1
+        : maxAttemptsFor(cfg, parts, e.id, opts);
       const has = e.attempts.length;
       if (has < need)
         return fail(

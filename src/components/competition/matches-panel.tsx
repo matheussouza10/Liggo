@@ -317,6 +317,7 @@ export function ResultDialog({
   setsConfig,
   series,
   recordMethod,
+  liveGame = null,
   onClose,
 }: {
   eventId: string;
@@ -326,16 +327,27 @@ export function ResultDialog({
   setsConfig: SetsConfig | null;
   series: SeriesConfig | null;
   recordMethod: boolean;
+  /** Score of the game being played live: it becomes the next game of the series. */
+  liveGame?: { home: number; away: number } | null;
   onClose: () => void;
 }) {
   const { pending, error, run } = useAction();
   const [method, setMethod] = useState<string>(match.winMethod ?? "");
   // A knockout tie played over several games: one row per game.
-  const [games, setGames] = useState<{ home: string; away: string }[]>(() =>
-    match.games.length
-      ? match.games.map((x) => ({ home: String(x.home), away: String(x.away) }))
-      : [{ home: "", away: "" }],
-  );
+  const [games, setGames] = useState<{ home: string; away: string }[]>(() => {
+    const played = match.games.map((x) => ({
+      home: String(x.home),
+      away: String(x.away),
+    }));
+    // The game that was just played live is the next one of the series.
+    if (
+      liveGame &&
+      series &&
+      played.length < (series.format === "HOME_AWAY" ? 2 : series.bestOf)
+    )
+      played.push({ home: String(liveGame.home), away: String(liveGame.away) });
+    return played.length ? played : [{ home: "", away: "" }];
+  });
   const filledGames = games.filter((x) => x.home !== "" || x.away !== "");
   // Scored by sets: one row per set instead of a single score.
   const [sets, setSets] = useState<{ home: string; away: string }[]>(() =>

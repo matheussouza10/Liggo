@@ -10,10 +10,10 @@ Prontas e verificadas (lint, build, testes de navegador): Fase 1 sets, Fase 2 fo
 
 **Fase 6 (auditoria) está em andamento.** `unit/audit-presets.ts` (rode `npx tsx unit/audit-presets.ts`) valida os presets e lista lacunas. Próximas tarefas, em ordem:
 1. ~~Dupla eliminação com qualquer número de participantes~~ (feita: 3 a 64, com folgas).
-2. ~~Matriz preset × tamanho de campo~~ (feita em `unit/audit-matrix.ts`). A matriz por **modalidade** também foi feita (`unit/audit-sports.ts`, 5 presets novos). Falta a encadeamentos (grupos para mata-mata com qualquer número de classificados).
-3. **Repescagem de judô** (perdedores para o bronze) e **desenho em árvore da dupla eliminação**.
-4. **Salto em altura com barra progressiva** (JUMPS_AT_FINAL_HEIGHT, TOTAL_FAILURES), **baterias/séries eliminatórias** nas provas, **revezamento por soma de tempos**, **série (melhor de N/ida e volta) ao vivo**.
-5. Depois do motor: telas de apoio ao organizador, relatórios/PDF, pagamento (Asaas), SMTP real, revisão jurídica, notificações.
+2. ~~Matriz preset × tamanho de campo~~ (feita em `unit/audit-matrix.ts`). A matriz por **modalidade** também foi feita (`unit/audit-sports.ts`, 5 presets novos). Encadeamento de grupos para mata-mata/dupla eliminação também foi testado (`e2e/chain-groups.mjs DOUBLE_ELIM|SINGLE_ELIM`); o salto em altura com barra progressiva está pronto (`e2e/highjump.mjs`).
+3. **Repescagem de judô** (perdedores para o bronze; cria jogos conforme os finalistas ficam conhecidos) e **baterias/séries eliminatórias** nas provas por desempenho (sorteio em baterias, ranking por bateria, classificados para a final). A árvore da dupla eliminação já está pronta (`DoubleBracketView`).
+4. (feitos: revezamento por soma de tempos e série ao vivo; falta baterias).
+5. Telas de apoio ao organizador: a **Jornada do evento** (checklist com próximo passo e avisos) está pronta (`e2e/journey.mjs`); o calendário com detecção de conflitos e a conferência da mesa no celular também estão prontos (`e2e/calendar-conflicts.mjs`, `e2e/mobile.mjs`); a agenda automática por quadra já existia. Falta o assistente de criação de evento (opcional). Depois: relatórios/PDF, pagamento (Asaas), SMTP real, revisão jurídica, notificações.
 
 Pendente de commit: tudo desde o commit `7f555be` (Fases 3, 4, 5 e correções, e as pastas `e2e/` e `unit/`). Peça ao dono para commitar.
 

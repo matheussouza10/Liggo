@@ -438,6 +438,29 @@ const list: Array<Omit<RulePreset, "rules"> & { rules: Partial<RulesInput> }> =
       },
     },
     {
+      key: "relay_time",
+      name: "Revezamento (soma dos tempos das pernas)",
+      description:
+        "Cada equipe tem 4 pernas; o resultado é a soma dos tempos e vence o menor. Só classifica a equipe com todas as pernas.",
+      confidence: "CONVENTION",
+      source:
+        "Convenção. Regras de passagem de bastão e desclassificação (World Athletics, World Aquatics) não foram lidas na pesquisa: lance DQ para desclassificar.",
+      rules: {
+        scoringModel: "PERFORMANCE",
+        tiebreakers: [tb("DRAW_LOTS")],
+        sportConfig: {
+          kind: "PERFORMANCE",
+          metric: "TIME",
+          bestIs: "LOWEST",
+          attempts: 4,
+          finalists: null,
+          extraAttempts: null,
+          aggregation: "SUM",
+        },
+        stages: [stage("PERFORMANCE", { name: "Prova" })],
+      },
+    },
+    {
       key: "judged_score",
       name: "Nota dos juízes (ginástica, patinação, saltos, dança...)",
       description:
@@ -597,6 +620,9 @@ export function suggestPresetKey(
   // Team games that live inside categories of races or scores.
   if (has(/polo aquatico|roller derby|curling|polo equestre|goalball/))
     return "generic";
+
+  // Relays add the legs of a team.
+  if (has(/revezamento/)) return "relay_time";
 
   // Judged by a panel.
   if (

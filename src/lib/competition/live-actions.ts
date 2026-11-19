@@ -5,7 +5,6 @@ import { z } from "zod";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { EVENT_META, MATCH_EVENT_TYPES, scoreDelta } from "./live";
-import { seriesConfigOf } from "./series";
 import { liveState, setsConfigOf } from "./sets";
 
 export type LiveResult = { ok: true } | { ok: false; error: string };
@@ -71,39 +70,6 @@ export async function startMatchAction(
     return fail("Este jogo ainda não tem os dois participantes.");
   if (match.status !== "SCHEDULED") return fail("Este jogo já foi encerrado.");
   if (match.startedAt) return fail("Este jogo já foi iniciado.");
-  // A tie played over several games is scored game by game, not live.
-  const tie = await prisma.match.findUnique({
-    where: { id: match.id },
-    select: {
-      stageRun: {
-        select: {
-          stage: {
-            select: {
-              type: true,
-              event: {
-                select: {
-                  rules: {
-                    select: {
-                      matchFormat: true,
-                      bestOf: true,
-                      awayGoals: true,
-                      penalties: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-  const stage = tie?.stageRun.stage;
-  if (stage?.type === "SINGLE_ELIM" && seriesConfigOf(stage.event.rules))
-    return fail(
-      "Neste formato o confronto tem vários jogos: lance o placar de cada jogo em Resultado.",
-    );
-
   await prisma.$transaction([
     prisma.match.update({
       where: { id: match.id },

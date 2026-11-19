@@ -39,6 +39,8 @@ export type MatchSnapshot = {
   possessionHome: number | null;
   /** How it was won (combat sports). */
   winMethod: string | null;
+  /** Games already played of a tie decided over several games. */
+  games: { home: number; away: number }[];
   /** Score of each set, finished or in progress (scoring by sets only). */
   sets: { home: number; away: number }[];
   scheduledAt: string | null;
@@ -66,6 +68,7 @@ export const snapshotInclude = {
   away: entry,
   referee: { select: { name: true } },
   sets: { orderBy: { number: "asc" as const } },
+  games: { orderBy: { number: "asc" as const } },
   events: {
     orderBy: { createdAt: "asc" },
     include: {
@@ -137,13 +140,14 @@ export function toSnapshot(m: SnapshotSource): MatchSnapshot {
     penaltiesAway: m.awayPenalties,
     possessionHome: m.possessionHome,
     winMethod: m.winMethod,
+    games: m.games.map((x) => ({ home: x.homeScore, away: x.awayScore })),
     sets: m.sets.map((x) => ({ home: x.homePoints, away: x.awayPoints })),
     scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
     startedAt: m.startedAt ? m.startedAt.toISOString() : null,
     venue: m.venue,
     referee: m.referee?.name ?? null,
     events,
-    version: `${events.length}:${last?.id ?? ""}:${state}:${scoreHome ?? "-"}-${scoreAway ?? "-"}:${m.homePenalties ?? ""}-${m.awayPenalties ?? ""}:${m.possessionHome ?? ""}:${m.winMethod ?? ""}:${m.sets.map((x) => `${x.homePoints}-${x.awayPoints}`).join(",")}`,
+    version: `${events.length}:${last?.id ?? ""}:${state}:${scoreHome ?? "-"}-${scoreAway ?? "-"}:${m.homePenalties ?? ""}-${m.awayPenalties ?? ""}:${m.possessionHome ?? ""}:${m.winMethod ?? ""}:${m.games.map((x) => `${x.homeScore}-${x.awayScore}`).join(",")}:${m.sets.map((x) => `${x.homePoints}-${x.awayPoints}`).join(",")}`,
   };
 }
 

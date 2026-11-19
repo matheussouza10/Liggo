@@ -32,7 +32,8 @@ Fase 6 (em andamento): auditoria com `unit/audit-presets.ts`. Matriz "modalidade
 - Núcleo puro `performance.ts`: leitura e formatação de tempo (1:23.45), distância/altura (7,85 m) e pontos; agregação (melhor, soma, média); ranking com desempate por contagem regressiva (COUNTBACK_BEST_ATTEMPT) e sorteio (DRAW_LOTS); o que continua igual divide a posição (1, 2, 2, 4). Ordem: válidos, aguardando, sem marca, DNF, DNS, DQ.
 - Finalistas: depois que todos fazem as tentativas iniciais, só os N melhores (com os empatados no corte) liberam as tentativas extras. O servidor recusa extras de quem não é finalista.
 - Concluir exige todas as tentativas (incluindo extras dos finalistas) e a prova deve ser a última fase. Mostra o vencedor. Página pública mostra o ranking.
-- Limites: salto em altura com barra progressiva (JUMPS_AT_FINAL_HEIGHT, TOTAL_FAILURES) não existe, vale só a melhor marca; baterias e séries eliminatórias; relevo de equipes (revezamento por soma de tempos); prova como fase intermediária (circuitos vêm na Fase 5).
+- Salto em altura e com vara (barra progressiva) funciona quando as regras têm JUMPS_AT_FINAL_HEIGHT ou TOTAL_FAILURES (é o caso do preset de altura): cada salto guarda a altura e se passou (O) ou falhou (X); 3 falhas seguidas eliminam; a barra só sobe; quem passou a altura não salta nela de novo; resultado = maior altura saltada; desempate por menos saltos na altura final, depois menos falhas.
+- Limites: baterias e séries eliminatórias; relevo de equipes (revezamento por soma de tempos); prova como fase intermediária (circuitos vêm na Fase 5).
 
 ## Fase 4: luta e duelo (decisões)
 - Final com jogo extra na dupla eliminação (RESET): a "Final decisiva" só nasce se o campeão da chave inferior vencer a 1ª final; some ao corrigir ou limpar essa final; o campeão sai da decisiva. (O preset de e-sports usa isso.)
@@ -55,3 +56,22 @@ A sugestão de preset (`suggestPresetKey`) era grosseira: só raquete, lutas, e-
 - `judged_score` (nota dos juízes: ginástica e dança, natação artística, saltos ornamentais, patinação artística, skate park/street, BMX freestyle, adestramento, fisiculturismo, surfe...), `precision_score` (tiro, arco, boliche), `precision_low` (golfe, minigolfe, disc golf), `strength_lifts` (powerlifting, levantamento, halterofilismo paralímpico), `points_total` (decatlo, heptatlo, pentatlo moderno, CrossFit, strongman...), `circuit_points` para todas as modalidades motorizadas, `race_time` para provas por tempo (incluindo Hyrox e corrida fitness).
 - `unit/audit-sports.ts` confere as 271 modalidades (expectativas para ~85 modalidades-chave, distribuição por categoria) e lista as 40 que ficam no genérico, todas disputas entre dois lados (handebol, rugby, bocha, sinuca, curling, goalball...).
 Pendente: encadeamentos (grupos para mata-mata com qualquer número de classificados) e os limites listados acima.
+
+## Encadeamento e barra progressiva (feitos)
+- Grupos para dupla eliminação ou mata-mata com 6 classificados (2 por grupo de 3 grupos) testado de ponta a ponta (`e2e/chain-groups.mjs`).
+- Barra progressiva (`unit/bar-test.ts`, `e2e/highjump.mjs`).
+
+## Processo do organizador: Jornada do evento (feita)
+`src/lib/events/journey.ts` (puro, `unit/journey-test.ts`) + `journey-queries.ts` + `EventJourney` no topo da página do evento. Sete passos (regras e fases, categorias, inscrições, sorteio, jogos e resultados, divulgação, encerramento), cada um com estado (feito, agora, a fazer, aguardando), uma frase de situação e o botão da ação; progresso em %; o próximo passo destacado.
+Avisos de inconsistência com link "Resolver": pedidos de inscrição pendentes, categoria com menos inscritos que o mínimo da 1ª fase (nome e mínimo; grupos pedem 2 por grupo, dupla eliminação 3), categoria sem inscritos, suíço com número ímpar (folga) ou rodadas demais, inscrições abertas com evento oculto, início em até 7 dias sem sorteio, data de início já passada. Teste: `e2e/journey.mjs`.
+Próximas telas planejadas: calendário visual com conflitos, agenda automática por quadra, modo mesa no celular, assistente de criação de evento.
+
+## Calendário com conflitos e mesa no celular (feitos)
+`src/lib/competition/schedule-conflicts.ts` (puro, `unit/conflicts-test.ts`) acha, entre jogos ainda não disputados: mesmo local e horário (nome sem caixa nem acento), mesmo árbitro e horário, mesmo time ou atleta em dois jogos ao mesmo tempo e intervalo menor que 30 minutos para o mesmo time ou atleta. O calendário mostra um painel "Conflitos" no topo e marca os jogos envolvidos; jogo disputado deixa de contar. Testes: `e2e/calendar-conflicts.mjs`, `e2e/mobile.mjs` (jornada, calendário e tela do jogo ao vivo sem rolagem lateral em 390 px, botões de lance com 40 px de altura).
+Agendamento automático por quadra já existia (`autoScheduleAction`).
+
+## Lacunas fechadas depois (revezamento, séries ao vivo, árvore)
+- Revezamento e outros tempos acumulados (`isCumulative`: tempo, soma, menor vence): a equipe só é classificada com todas as pernas; perna DNF/DNS/NM anula a equipe; incompleta fica "Aguardando" (nunca passa à frente por soma parcial). Preset `relay_time` (4 pernas) sugerido para "revezamento". Rótulo "Perna n" no diálogo. Testes: `unit/relay-test.ts`, `e2e/performance.mjs RELAY`.
+- Séries ao vivo: cada jogo de um melhor de N ou ida e volta pode ser marcado ao vivo; ao encerrar, o placar ao vivo preenche a próxima linha da série; salvar uma série ainda aberta zera o ao vivo para o jogo seguinte; a página pública mostra "Jogos da série". Teste: `e2e/series.mjs BEST_OF`.
+- Árvore da dupla eliminação: aba "Chave" com três seções (chave superior, chave inferior, final), colunas por rodada, abrindo o resultado ao clicar. `DoubleBracketView`.
+- Lacunas que ficaram: baterias (séries eliminatórias) nas provas por desempenho e repescagem do judô (cria jogos conforme os finalistas).

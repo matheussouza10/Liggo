@@ -18,7 +18,7 @@ const expect:Record<string,string>={
   "Tênis":"racket_sets","Tênis de Mesa":"racket_sets","Badminton":"racket_sets","Tênis em Cadeira de Rodas":"racket_sets","Parabadminton":"racket_sets",
   "Xadrez":"chess_swiss","Damas":"chess_swiss","Go":"chess_swiss","Dominó":"generic","Cubo Mágico (Speedcubing)":"race_time",
   "Polo Aquático":"generic","Roller Derby":"generic","Curling":"generic","Goalball":"generic","Polo Equestre":"generic","Handebol":"generic","Rugby":"generic","Hóquei no Gelo":"generic",
-  "Esqui Alpino":"race_time","Biatlo":"race_time","Triatlo":"race_time","Ciclismo de Estrada":"race_time","Canoagem":"race_time","Corrida de Aventura":"race_time","Orientação":"race_time",
+  "Corrida de Revezamento":"relay_time","Esqui Alpino":"race_time","Biatlo":"race_time","Triatlo":"race_time","Ciclismo de Estrada":"race_time","Canoagem":"race_time","Corrida de Aventura":"race_time","Orientação":"race_time",
 };
 const byName=new Map(rows.map(([c,s])=>[s,c] as const));
 for(const [sport,preset] of Object.entries(expect)){
