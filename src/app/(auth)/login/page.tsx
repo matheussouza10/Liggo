@@ -6,7 +6,13 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = { title: "Entrar | Liggo" };
 
-export default function EntrarPage() {
+// The notice comes from the address (?reset=1), so this page is read per request.
+export const instant = false;
+
+export default async function EntrarPage({
+  searchParams,
+}: PageProps<"/login">) {
+  const { reset } = await searchParams;
   return (
     <AuthShell
       variant="organizer"
@@ -24,7 +30,12 @@ export default function EntrarPage() {
         </>
       }
     >
-      <LoginForm variant="organizer" />
+      <LoginForm
+        variant="organizer"
+        notice={
+          reset === "1" ? "Senha alterada. Entre com a nova senha." : undefined
+        }
+      />
     </AuthShell>
   );
 }

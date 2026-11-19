@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowRightIcon, CircleAlertIcon, MailIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CircleAlertIcon,
+  CircleCheckIcon,
+  MailIcon,
+} from "lucide-react";
 import { useActionState, useId } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,6 +39,17 @@ export function ForgotPasswordForm() {
   return (
     <form action={formAction} noValidate>
       <FieldGroup>
+        {state.sent ? (
+          <Alert>
+            <CircleCheckIcon />
+            <AlertTitle>Verifique seu e-mail</AlertTitle>
+            <AlertDescription>
+              Se existir uma conta com esse e-mail, enviamos um link para criar
+              uma nova senha. Ele vale por 1 hora. Confira também a caixa de
+              spam.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {state.error ? (
           <Alert variant="destructive">
             <CircleAlertIcon />
@@ -69,7 +85,11 @@ export function ForgotPasswordForm() {
           disabled={pending}
           className="h-11 w-full text-base"
         >
-          {pending ? "Enviando" : "Enviar link de recuperação"}
+          {pending
+            ? "Enviando"
+            : state.sent
+              ? "Enviar de novo"
+              : "Enviar link de recuperação"}
           {pending ? (
             <Spinner data-icon="inline-end" />
           ) : (

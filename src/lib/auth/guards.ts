@@ -17,3 +17,10 @@ export async function requireSystemAdmin(): Promise<SessionUser> {
   if (!user || user.role !== "SYSTEM_ADMIN") redirect("/admin/login");
   return user;
 }
+
+/** Owner-only areas (team, invitations, organization data). Members are sent back to the settings home. */
+export async function requireOwner(): Promise<SessionUser> {
+  const user = await requireOrganizationUser();
+  if (user.role !== "OWNER" || !user.organization) redirect("/settings");
+  return user;
+}

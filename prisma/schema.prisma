@@ -20,30 +20,37 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users    User[]
-  events   Event[]
-  athletes OrganizationAthlete[]
-  teams    Team[]
-  referees Referee[]
+  users       User[]
+  invitations Invitation[]
+  events      Event[]
+  athletes    OrganizationAthlete[]
+  teams       Team[]
+  referees    Referee[]
 
   @@map("organizations")
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  passwordHash   String
-  role           Role     @default(MEMBER)
-  organizationId String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String    @id @default(cuid())
+  email           String    @unique
+  name            String
+  passwordHash    String
+  role            Role      @default(MEMBER)
+  organizationId  String?
+  /// Set when the person was deactivated: no sign in, sessions are gone. Never deleted, because events and lances reference who made them.
+  disabledAt      DateTime?
+  termsAcceptedAt DateTime?
+  termsVersion    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  sessions      Session[]
-  createdEvents Event[]
-  registrations Registration[]
-  matchEvents   MatchEvent[]
+  organization    Organization?        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sessions        Session[]
+  resetTokens     PasswordResetToken[]
+  invitationsSent Invitation[]
+  createdEvents   Event[]
+  registrations   Registration[]
+  matchEvents     MatchEvent[]
 
   @@index([organizationId])
   @@map("users")
@@ -723,4 +730,62 @@ model MatchEvent {
 
   @@index([matchId, createdAt])
   @@map("match_events")
+}
+
+/// Link to choose a new password. Single use; only the hash of the token is stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+/// An invitation to join an organization by e-mail.
+model Invitation {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  role           Role      @default(MEMBER)
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation(fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+/// Where e-mails go in development when no SMTP server is configured. Never used in production.
+model OutboundEmail {
+  id        String   @id @default(cuid())
+  toEmail   String
+  subject   String
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([toEmail, createdAt])
+  @@map("outbound_emails")
+}
+
+/// A try of something that must be limited (sign in failures, password reset requests).
+model AuthAttempt {
+  id        String   @id @default(cuid())
+  kind      String
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([kind, key, createdAt])
+  @@map("auth_attempts")
 }

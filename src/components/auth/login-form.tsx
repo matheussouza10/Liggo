@@ -3,6 +3,7 @@
 import {
   ArrowRightIcon,
   CircleAlertIcon,
+  CircleCheckIcon,
   EyeIcon,
   EyeOffIcon,
   LockIcon,
@@ -32,7 +33,14 @@ type Variant = "organizer" | "admin";
 
 const initialState: SignInState = { email: "" };
 
-export function LoginForm({ variant }: { variant: Variant }) {
+export function LoginForm({
+  variant,
+  notice,
+}: {
+  variant: Variant;
+  /** A success message to show above the form (for example after changing the password). */
+  notice?: string;
+}) {
   const [state, formAction, pending] = useActionState(
     signInAction,
     initialState,
@@ -51,6 +59,12 @@ export function LoginForm({ variant }: { variant: Variant }) {
     <form action={formAction} noValidate>
       <input type="hidden" name="role" value={variant} />
       <FieldGroup>
+        {notice ? (
+          <Alert>
+            <CircleCheckIcon />
+            <AlertDescription>{notice}</AlertDescription>
+          </Alert>
+        ) : null}
         {state.error ? (
           <Alert variant="destructive">
             <CircleAlertIcon />

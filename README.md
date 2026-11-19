@@ -33,5 +33,8 @@ antes de rodar `npm run db:seed`. Sem essas variáveis o seed não cria ninguém
 - Chaveamento: `/events/[id]/stages/bracket`; jogo ao vivo e lances: `/events/[id]/matches/[matchId]`
 - Site público, sem login: `/watch` (jogos ao vivo, próximos, resultados e eventos), `/watch/events/[id]` e `/watch/matches/[id]` (tempo real)
 - Estatísticas: `/events/[id]/stats` e `/watch/events/[id]/stats` (artilharia, cartões, faltas, posse); por jogo, nas telas do jogo
+- Histórico do atleta: `/athletes/[id]/history`; a lista de eventos tem acesso rápido a regras, inscrições, fases e jogos e à página pública
+- Conta: `/forgot-password` e `/reset-password` (recuperação de senha por e-mail), `/invite` (aceitar convite), `/terms` e `/privacy`; configurações em `/settings` (perfil, segurança, organização, equipe e convites)
+- E-mail: defina `SMTP_*`, `MAIL_FROM` e `APP_URL` no `.env` (veja `.env.example`); sem SMTP, em desenvolvimento, os e-mails ficam na tabela `outbound_emails` e no console
 
 Contexto de produto e identidade visual: [PRODUCT.md](./PRODUCT.md).

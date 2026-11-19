@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { Separator } from "@/components/ui/separator";
 import { BracketArt } from "./bracket-art";
@@ -77,7 +78,14 @@ export function AuthShell({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          © Liggo. Todos os direitos reservados.
+          © Liggo. Todos os direitos reservados.{" "}
+          <Link href="/terms" className="underline">
+            Termos
+          </Link>{" "}
+          ·{" "}
+          <Link href="/privacy" className="underline">
+            Privacidade
+          </Link>
         </p>
       </section>
     </main>

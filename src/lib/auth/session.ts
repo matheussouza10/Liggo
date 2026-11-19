@@ -10,6 +10,8 @@ const COOKIE_NAME = "liggo_session";
 const SESSION_DAYS = 30;
 
 export type SessionUser = {
+  /** The id of the session cookie in use, to keep it when signing out of the others. */
+  sessionId: string;
   id: string;
   name: string;
   email: string;
@@ -60,6 +62,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
           name: true,
           email: true,
           role: true,
+          disabledAt: true,
           organization: { select: { id: true, name: true, slug: true } },
         },
       },
@@ -71,7 +74,10 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     await prisma.session.deleteMany({ where: { id: session.id } });
     return null;
   }
-  return session.user;
+  // A deactivated person has no sessions; this also covers one deactivated mid-request.
+  const { disabledAt, ...user } = session.user;
+  if (disabledAt) return null;
+  return { ...user, sessionId: session.id };
 });
 
 export async function destroySession(): Promise<void> {

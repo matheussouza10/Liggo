@@ -1,6 +1,15 @@
-import { PlusIcon, TrophyIcon } from "lucide-react";
+import {
+  ClipboardListIcon,
+  EyeOffIcon,
+  GlobeIcon,
+  PlusIcon,
+  SlidersHorizontalIcon,
+  SwordsIcon,
+  TrophyIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Tip } from "@/components/stats/tip";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -87,6 +96,7 @@ export default async function EventsPage() {
                 <TableHead className="hidden xl:table-cell">
                   Participação
                 </TableHead>
+                <TableHead className="w-44 text-right">Acesso rápido</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,6 +126,68 @@ export default async function EventsPage() {
                   </TableCell>
                   <TableCell className="hidden xl:table-cell">
                     {PARTICIPATION_LABELS[event.participationType]}
+                  </TableCell>
+                  <TableCell>
+                    <nav
+                      aria-label={`Acesso rápido a ${event.name}`}
+                      className="flex items-center justify-end gap-1"
+                    >
+                      {[
+                        {
+                          href: `/events/${event.id}/rules`,
+                          label: "Regras",
+                          Icon: SlidersHorizontalIcon,
+                        },
+                        {
+                          href: `/events/${event.id}/registrations`,
+                          label: "Inscrições",
+                          Icon: ClipboardListIcon,
+                        },
+                        {
+                          href: `/events/${event.id}/stages`,
+                          label: "Fases e jogos",
+                          Icon: SwordsIcon,
+                        },
+                      ].map(({ href, label, Icon }) => (
+                        <Tip key={label} text={label}>
+                          <Link
+                            href={href}
+                            aria-label={`${label} de ${event.name}`}
+                            className={buttonVariants({
+                              variant: "ghost",
+                              size: "icon-sm",
+                            })}
+                          >
+                            <Icon />
+                          </Link>
+                        </Tip>
+                      ))}
+                      {event.publicVisible ? (
+                        <Tip text="Página pública">
+                          <Link
+                            href={`/watch/events/${event.id}`}
+                            target="_blank"
+                            aria-label={`Página pública de ${event.name}`}
+                            className={buttonVariants({
+                              variant: "ghost",
+                              size: "icon-sm",
+                            })}
+                          >
+                            <GlobeIcon />
+                          </Link>
+                        </Tip>
+                      ) : (
+                        <Tip text="Evento oculto ao público">
+                          <span
+                            role="img"
+                            aria-label={`${event.name} está oculto ao público`}
+                            className="inline-flex size-7 items-center justify-center text-muted-foreground"
+                          >
+                            <EyeOffIcon className="size-4" />
+                          </span>
+                        </Tip>
+                      )}
+                    </nav>
                   </TableCell>
                 </TableRow>
               ))}

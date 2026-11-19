@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AthleteForm } from "@/components/people/athlete-form";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { formatCpf } from "@/lib/people/cpf";
@@ -43,6 +45,24 @@ export default async function AthletePage({
         <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
           {athlete.name}
         </h1>
+        <nav aria-label="Seções do atleta" className="mt-4 flex gap-2">
+          <Link
+            href={`/athletes/${athlete.id}`}
+            aria-current="page"
+            className={cn(buttonVariants({ size: "sm" }), "h-9")}
+          >
+            Dados
+          </Link>
+          <Link
+            href={`/athletes/${athlete.id}/history`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-9",
+            )}
+          >
+            Histórico
+          </Link>
+        </nav>
       </div>
       {saved ? (
         <Alert className="max-w-3xl">

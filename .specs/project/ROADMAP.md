@@ -10,4 +10,4 @@
 | 5a | Execução das fases: sorteio, jogos, resultados, classificação, avanço e calendário (`.specs/features/stage-execution`) | Concluído e verificado para pontos corridos, grupos e mata-mata (jogo único) |
 | 5c | Jogo ao vivo (lances), página pública em tempo real, painel e chaveamento (`.specs/features/live-and-public`) | Concluído e verificado |
 | 5b | Dupla eliminação, suíço, desempenho, ida e volta e melhor de N no mata-mata, critérios sem dado (cartões, sets) | Pendente |
-| 6 | Recuperação de senha (e-mail), páginas de termos e privacidade | Pendente |
+| 6 | Conta e acesso: recuperação de senha, termos e privacidade, configurações, equipe e convites (`.specs/features/account-access`) | Concluído e verificado (falta SMTP real e revisão jurídica) |

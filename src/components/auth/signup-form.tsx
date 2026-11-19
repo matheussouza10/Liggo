@@ -202,16 +202,35 @@ export function SignUpForm() {
           orientation="horizontal"
           data-invalid={errors?.terms ? true : undefined}
         >
+          {/* The form is reset after a failed submit; this field keeps the answer the checkbox shows. */}
+          <input type="hidden" name="terms" value={termsChecked ? "on" : ""} />
           <Checkbox
             id={ids.terms}
-            name="terms"
             checked={termsChecked}
             onCheckedChange={setTermsChecked}
             aria-invalid={errors?.terms ? true : undefined}
             aria-describedby={errors?.terms ? `${ids.terms}-error` : undefined}
           />
           <FieldLabel htmlFor={ids.terms} className="font-normal">
-            Li e aceito os termos de uso e a política de privacidade.
+            Li e aceito os{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener"
+              className="underline"
+            >
+              termos de uso
+            </a>{" "}
+            e a{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener"
+              className="underline"
+            >
+              política de privacidade
+            </a>
+            .
           </FieldLabel>
         </Field>
         <FieldError id={`${ids.terms}-error`}>{errors?.terms}</FieldError>

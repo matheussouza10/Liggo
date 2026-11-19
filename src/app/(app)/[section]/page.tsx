@@ -5,7 +5,6 @@ import { requireOrganizationUser } from "@/lib/auth/guards";
 
 const SECTIONS: Record<string, string> = {
   reports: "Relatórios",
-  settings: "Configurações",
   help: "Central de ajuda",
 };
 

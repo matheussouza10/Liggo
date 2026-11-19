@@ -51,7 +51,14 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <footer className="relative z-10 border-t border-white/10 py-6 text-center text-sm text-muted-foreground">
-        Liggo · Toda competição começa aqui.
+        Liggo · Toda competição começa aqui.{" "}
+        <Link href="/terms" className="underline">
+          Termos
+        </Link>{" "}
+        ·{" "}
+        <Link href="/privacy" className="underline">
+          Privacidade
+        </Link>
       </footer>
     </div>
   );

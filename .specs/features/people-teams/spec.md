@@ -59,3 +59,10 @@ WHEN o organizador vê a sidebar THEN o sistema SHALL mostrar Atletas, Times e �
 | PER-08 | Times: criar, editar, desativar | Verificado |
 | PER-09 | Árbitros: criar, editar, desativar, modalidades | Verificado |
 | PER-10 | Navegação | Verificado |
+
+## Histórico do atleta (acréscimo)
+- Página `/athletes/[id]/history`, ligada à página do atleta por "Dados" e "Histórico".
+- Mostra só os eventos da organização de quem olha (o atleta é compartilhado entre organizações, o histórico não vaza).
+- Por participação: evento, modalidade, categoria, time, camisa, posição, capitão, como o time terminou (campeão, vice, 3º, eliminado em tal fase, em andamento), a campanha do time e o desempenho do atleta (gols ou pontos, assistências, amarelos, vermelhos, faltas, jogos com lance).
+- Resumo geral, gráfico de gols por evento e aviso de que os números vêm dos lances lançados pelo organizador (a escalação por jogo não é registrada, então não se afirma quantos jogos o atleta disputou).
+
