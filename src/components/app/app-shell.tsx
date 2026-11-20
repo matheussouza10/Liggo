@@ -46,6 +46,8 @@ type Props = {
   user: { name: string; detail: string };
   /** Real number of events of the organization, shown next to "Eventos". */
   eventCount?: number;
+  /** Plan card of the sidebar: real plan and usage of the organization. */
+  plan?: { name: string; events: number; maxEvents: number | null };
   children: ReactNode;
 };
 
@@ -84,7 +86,7 @@ function Avatar({ name, className }: { name: string; className?: string }) {
   );
 }
 
-export function AppShell({ area, user, eventCount, children }: Props) {
+export function AppShell({ area, user, eventCount, plan, children }: Props) {
   const nav = area === "admin" ? adminNav : organizerNav;
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -253,7 +255,7 @@ export function AppShell({ area, user, eventCount, children }: Props) {
 
         {area === "organizer" ? (
           <div
-            title={collapsed ? "Plano Starter" : undefined}
+            title={collapsed ? `Plano ${plan?.name ?? ""}`.trim() : undefined}
             className={cn(
               "mt-auto overflow-hidden rounded-2xl border border-white/[.06] bg-linear-to-br from-[#262b49] to-[#20243e] p-4",
               collapsed && "lg:p-2.5",
@@ -268,16 +270,30 @@ export function AppShell({ area, user, eventCount, children }: Props) {
               <ZapIcon className="size-4" />
             </div>
             <div className={cn(collapsed && "lg:hidden")}>
-              <p className="text-[13px] font-semibold">Plano Starter</p>
+              <p className="text-[13px] font-semibold">
+                Plano {plan?.name ?? ""}
+              </p>
               <p className="mt-1 text-[11px] leading-relaxed text-[#8f95ae]">
-                Você está usando 6 de 8 campeonatos.
+                {plan
+                  ? plan.maxEvents === null
+                    ? `${plan.events} eventos (sem limite).`
+                    : `Você está usando ${plan.events} de ${plan.maxEvents} eventos.`
+                  : ""}
               </p>
               <div className="my-3 h-1 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full w-3/4 rounded-full bg-linear-to-r from-[#187cfa] to-[#1ce6d3]" />
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-[#187cfa] to-[#1ce6d3]"
+                  style={{
+                    width: `${plan && plan.maxEvents ? Math.min(100, Math.round((plan.events / plan.maxEvents) * 100)) : 0}%`,
+                  }}
+                />
               </div>
-              <span className="text-[11px] font-semibold text-[#1ce6d3]">
+              <Link
+                href="/settings/plan"
+                className="text-[11px] font-semibold text-[#1ce6d3]"
+              >
                 Fazer upgrade →
-              </span>
+              </Link>
             </div>
           </div>
         ) : null}

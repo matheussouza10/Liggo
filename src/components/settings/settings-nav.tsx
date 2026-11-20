@@ -10,6 +10,8 @@ const ITEMS = [
   { href: "/settings/security", label: "Segurança" },
   { href: "/settings/organization", label: "Organização" },
   { href: "/settings/team", label: "Equipe" },
+  { href: "/settings/plan", label: "Plano" },
+  { href: "/settings/payments", label: "Pagamentos" },
 ];
 
 export function SettingsNav() {

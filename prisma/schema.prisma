@@ -27,6 +27,18 @@ model Organization {
   teams       Team[]
   referees    Referee[]
 
+  /// Plan the organization pays the platform for (null: the default plan applies).
+  planId              String?
+  /// Customer and subscription in the platform's Asaas account.
+  asaasCustomerId     String?
+  asaasSubscriptionId String?
+  subscriptionStatus  SubscriptionStatus @default(NONE)
+  planRenewsAt        DateTime?
+
+  plan           Plan?                       @relation(fields: [planId], references: [id], onDelete: SetNull)
+  paymentAccount OrganizationPaymentAccount?
+  payments       Payment[]
+
   @@map("organizations")
 }
 
@@ -495,6 +507,8 @@ model EventCategory {
   members              RegistrationMember[]
   stageRuns            StageRun[]
   registrationRequests RegistrationRequest[]
+  /// Registration fee in cents (0: free).
+  feeCents             Int                   @default(0)
 
   @@unique([eventId, name])
   @@index([eventId])
@@ -520,6 +534,7 @@ model Registration {
   staff     RegistrationStaff[]
   entries   StageEntry[]
   request   RegistrationRequest?
+  payments  Payment[]
 
   // A team enters a category once (several null teams are allowed).
   @@unique([categoryId, teamId])
@@ -947,4 +962,131 @@ model PerformanceAttempt {
 
   @@unique([entryId, number])
   @@map("performance_attempts")
+}
+
+enum PaymentEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum SubscriptionStatus {
+  NONE
+  PENDING
+  ACTIVE
+  OVERDUE
+  CANCELED
+}
+
+enum PaymentKind {
+  REGISTRATION
+  PLAN
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  RECEIVED
+  OVERDUE
+  REFUNDED
+  CANCELED
+}
+
+enum PaymentAccountStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// The platform's Asaas settings (a single row): the key of the account that receives the plans.
+model PaymentSettings {
+  id           String             @id @default("singleton")
+  environment  PaymentEnvironment @default(SANDBOX)
+  /// AES-256-GCM of the API key; never stored in clear.
+  apiKeyEnc    String?
+  /// Secret Asaas sends in the asaas-access-token header of every webhook.
+  webhookToken String?
+  /// Replaces the Asaas address (tests and proxies).
+  baseUrl      String?
+  updatedAt    DateTime           @updatedAt
+
+  @@map("payment_settings")
+}
+
+/// What the platform sells: a monthly price and what the organization may use.
+model Plan {
+  id                       String   @id @default(cuid())
+  name                     String   @unique
+  description              String?
+  priceCents               Int
+  /// Limits: null means unlimited.
+  maxEvents                Int?
+  maxAthletes              Int?
+  maxRegistrationsPerEvent Int?
+  active                   Boolean  @default(true)
+  /// The plan organizations without a subscription use.
+  isDefault                Boolean  @default(false)
+  sortOrder                Int      @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  organizations Organization[]
+  payments      Payment[]
+
+  @@map("plans")
+}
+
+/// The Asaas subaccount that receives the registration fees of an organization.
+model OrganizationPaymentAccount {
+  id             String               @id @default(cuid())
+  organizationId String               @unique
+  asaasAccountId String
+  walletId       String?
+  /// AES-256-GCM of the subaccount API key.
+  apiKeyEnc      String
+  status         PaymentAccountStatus @default(PENDING)
+  /// Holder shown back to the organizer (the document is kept masked).
+  holderName     String
+  holderDocument String
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_payment_accounts")
+}
+
+/// A charge in Asaas: a registration fee (in the organization's subaccount) or a plan payment (in the platform account).
+model Payment {
+  id             String        @id @default(cuid())
+  organizationId String
+  kind           PaymentKind
+  status         PaymentStatus @default(PENDING)
+  asaasPaymentId String        @unique
+  valueCents     Int
+  billingType    String        @default("UNDEFINED")
+  dueDate        DateTime      @db.Date
+  paidAt         DateTime?
+  invoiceUrl     String?
+  description    String
+  registrationId String?
+  planId         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  registration Registration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  plan         Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, kind])
+  @@index([registrationId])
+  @@map("payments")
+}
+
+/// Webhook events already handled (Asaas delivers at least once).
+model PaymentWebhookEvent {
+  id          String   @id
+  event       String
+  processedAt DateTime @default(now())
+
+  @@map("payment_webhook_events")
 }

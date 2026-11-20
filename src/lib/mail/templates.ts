@@ -98,17 +98,25 @@ export function requestDecisionMail(
   name: string,
   eventName: string,
   eventId: string,
-  decision: { approved: true } | { approved: false; reason: string },
+  decision:
+    | { approved: true; payUrl?: string | null; feeText?: string }
+    | { approved: false; reason: string },
 ): Mail {
   const link = `${appUrl()}/register/${encodeURIComponent(eventId)}`;
   if (decision.approved) {
+    const pay = decision.payUrl
+      ? `\n\nPara confirmar a vaga, pague a taxa de inscrição${decision.feeText ? ` (${decision.feeText})` : ""}:\n\n${decision.payUrl}`
+      : "";
+    const payHtml = decision.payUrl
+      ? `<br><br>Para confirmar a vaga, pague a taxa de inscrição${decision.feeText ? ` (<b>${escape(decision.feeText)}</b>)` : ""}: <a href="${escape(decision.payUrl)}">pagar agora</a>.`
+      : "";
     return {
       to,
       subject: `Inscrição aprovada em ${eventName}`,
-      text: `Olá, ${name}.\n\nBoas notícias: a sua inscrição em ${eventName} foi aprovada.\n\nVeja o evento:\n\n${link}`,
+      text: `Olá, ${name}.\n\nBoas notícias: a sua inscrição em ${eventName} foi aprovada.${pay}\n\nVeja o evento:\n\n${link}`,
       html: layout(
         "Inscrição aprovada",
-        `Olá, ${escape(name)}. A sua inscrição em <b>${escape(eventName)}</b> foi aprovada.`,
+        `Olá, ${escape(name)}. A sua inscrição em <b>${escape(eventName)}</b> foi aprovada.${payHtml}`,
         link,
         "Ver o evento",
       ),

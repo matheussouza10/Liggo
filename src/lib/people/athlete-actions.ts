@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { checkLimit } from "@/lib/payments/plans";
 import { prisma } from "@/lib/prisma";
 import { isValidCpf, normalizeCpf } from "./cpf";
 import { abbreviateName } from "./format";
@@ -55,6 +56,9 @@ export async function createAthleteAction(
   if (!parsed.success)
     return { values, fieldErrors: fieldErrorsOf(parsed.error.issues) };
   const data = parsed.data;
+
+  const limit = await checkLimit(organizationId, "athletes");
+  if (limit) return { values, error: limit };
 
   // The CPF is the athlete's identity across organizations.
   if (data.cpf) {
@@ -138,6 +142,17 @@ export async function linkAthleteByCpfAction(
     select: { id: true },
   });
   if (!athlete) return { error: "Atleta não encontrado." };
+
+  const alreadyMine = await prisma.organizationAthlete.findUnique({
+    where: {
+      organizationId_athleteId: { organizationId, athleteId: athlete.id },
+    },
+    select: { athleteId: true },
+  });
+  if (!alreadyMine) {
+    const limit = await checkLimit(organizationId, "athletes");
+    if (limit) return { error: limit };
+  }
 
   await prisma.organizationAthlete.upsert({
     where: {

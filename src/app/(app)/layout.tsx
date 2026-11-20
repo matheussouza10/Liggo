@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import { AppShell } from "@/components/app/app-shell";
 import { ShellFallback } from "@/components/app/shell-fallback";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { planOf } from "@/lib/payments/plans";
 import { prisma } from "@/lib/prisma";
 
 // These routes read the session (cookie + database) on every request, so they
@@ -25,10 +26,16 @@ async function OrganizationShell({ children }: { children: ReactNode }) {
         where: { organizationId: user.organization.id },
       })
     : 0;
+  const plan = user.organization ? await planOf(user.organization.id) : null;
   return (
     <AppShell
       area="organizer"
       eventCount={eventCount}
+      plan={
+        plan
+          ? { name: plan.name, events: eventCount, maxEvents: plan.maxEvents }
+          : undefined
+      }
       user={{
         name: user.name,
         detail: user.organization?.name ?? "Sem organização",

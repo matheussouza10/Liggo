@@ -54,6 +54,7 @@ import {
   saveCategoryAction,
   type CategoryFormState,
 } from "@/lib/registrations/category-actions";
+import { centsToInput, formatMoney } from "@/lib/payments/money";
 import { CATEGORY_GENDER_LABELS } from "@/lib/registrations/constants";
 
 export type CategoryRow = {
@@ -65,6 +66,7 @@ export type CategoryRow = {
   rosterMin: number;
   rosterMax: number | null;
   registrations: number;
+  feeCents: number;
 };
 
 function ageText(c: CategoryRow): string {
@@ -131,6 +133,7 @@ export function CategoriesManager({
               <TableHead>Sexo</TableHead>
               <TableHead className="hidden md:table-cell">Idade</TableHead>
               <TableHead className="hidden lg:table-cell">Elenco</TableHead>
+              <TableHead className="hidden w-28 md:table-cell">Taxa</TableHead>
               <TableHead className="w-28">Inscrições</TableHead>
               <TableHead className="w-28 text-right">
                 <span className="sr-only">Ações</span>
@@ -151,6 +154,9 @@ export function CategoriesManager({
                 </TableCell>
                 <TableCell className="hidden tabular-nums lg:table-cell">
                   {rosterText(c)}
+                </TableCell>
+                <TableCell className="hidden tabular-nums md:table-cell">
+                  {c.feeCents > 0 ? formatMoney(c.feeCents) : "Grátis"}
                 </TableCell>
                 <TableCell className="tabular-nums">
                   {c.registrations}
@@ -376,6 +382,26 @@ function CategoryForm({
             <FieldError>{errors.rosterMax}</FieldError>
           </Field>
         </div>
+        <Field data-invalid={errors.fee ? true : undefined}>
+          <FieldLabel htmlFor={`${id}-fee`}>Taxa de inscrição (R$)</FieldLabel>
+          <Input
+            id={`${id}-fee`}
+            name="fee"
+            inputMode="decimal"
+            defaultValue={
+              v?.fee ??
+              (category?.feeCents ? centsToInput(category.feeCents) : "")
+            }
+            placeholder="Grátis"
+            className="h-10 tabular-nums"
+            {...field("fee")}
+          />
+          <FieldError>{errors.fee}</FieldError>
+          <FieldDescription>
+            Cobrada na conta de recebimento da organização quando a inscrição é
+            aprovada.
+          </FieldDescription>
+        </Field>
         <FieldDescription>
           O tamanho do elenco vale para eventos por equipe.
         </FieldDescription>

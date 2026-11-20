@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { parseMoney } from "@/lib/payments/money";
 import { prisma } from "@/lib/prisma";
 import { sameName } from "@/lib/text";
 import { categorySchema } from "./schemas";
@@ -20,6 +21,7 @@ const FIELDS = [
   "maxAge",
   "rosterMin",
   "rosterMax",
+  "fee",
 ] as const;
 
 async function ownEvent(eventId: string) {
@@ -44,6 +46,9 @@ export async function saveCategoryAction(
   const values = Object.fromEntries(
     FIELDS.map((k) => [k, String(formData.get(k) ?? "")]),
   );
+  // The fee is optional; empty means free.
+  const feeText = values.fee.trim();
+  const feeCents = feeText === "" ? 0 : parseMoney(feeText);
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -51,8 +56,11 @@ export async function saveCategoryAction(
       const key = String(issue.path[0] ?? "form");
       if (!(key in fieldErrors)) fieldErrors[key] = issue.message;
     }
+    if (feeCents === null) fieldErrors.fee = "Valor inválido (ex.: 50,00).";
     return { values, fieldErrors };
   }
+  if (feeCents === null)
+    return { values, fieldErrors: { fee: "Valor inválido (ex.: 50,00)." } };
   const d = parsed.data;
 
   const siblings = await prisma.eventCategory.findMany({
@@ -77,6 +85,7 @@ export async function saveCategoryAction(
     maxAge: d.maxAge,
     rosterMin: d.rosterMin,
     rosterMax: d.rosterMax,
+    feeCents,
   };
   if (categoryId) {
     await prisma.eventCategory.update({ where: { id: categoryId }, data });

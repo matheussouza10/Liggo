@@ -54,6 +54,7 @@ export default async function EventCategoriesPage({
           rosterMin: c.rosterMin,
           rosterMax: c.rosterMax,
           registrations: c._count.registrations,
+          feeCents: c.feeCents,
         }))}
       />
     </div>

@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { formatDay } from "@/lib/events/constants";
+import { formatMoney } from "@/lib/payments/money";
 import { formatCpf } from "@/lib/people/cpf";
 import { GENDER_LABELS } from "@/lib/people/format";
 import { prisma } from "@/lib/prisma";
@@ -46,6 +47,20 @@ export default async function RequestDetailPage({
     }),
   ]);
   const team = request.event.participationType === "TEAM";
+  const fee = request.registrationId
+    ? await prisma.payment.findFirst({
+        where: { registrationId: request.registrationId, kind: "REGISTRATION" },
+        orderBy: { createdAt: "desc" },
+      })
+    : null;
+  const FEE_STATUS = {
+    PENDING: "pendente",
+    CONFIRMED: "confirmada",
+    RECEIVED: "paga",
+    OVERDUE: "em atraso",
+    REFUNDED: "estornada",
+    CANCELED: "cancelada",
+  } as const;
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -79,6 +94,23 @@ export default async function RequestDetailPage({
               >
                 Abrir inscrição
               </Link>
+            ) : null}
+            {fee ? (
+              <span className="mt-1 block">
+                Taxa de inscrição: {formatMoney(fee.valueCents)} (
+                {FEE_STATUS[fee.status]}).{" "}
+                {fee.invoiceUrl &&
+                (fee.status === "PENDING" || fee.status === "OVERDUE") ? (
+                  <a
+                    href={fee.invoiceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    Link de pagamento
+                  </a>
+                ) : null}
+              </span>
             ) : null}
           </AlertDescription>
         </Alert>

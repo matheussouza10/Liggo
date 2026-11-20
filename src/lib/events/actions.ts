@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/generated/prisma/client";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { checkLimit } from "@/lib/payments/plans";
 import { prisma } from "@/lib/prisma";
 import { ineligibleReason } from "@/lib/registrations/eligibility";
 import { parseDateInput } from "./constants";
@@ -27,6 +28,9 @@ export async function createEventAction(
   const values = readEventValues(formData);
   const { errors, data } = await validateEventValues(values);
   if (!data) return { values, fieldErrors: errors };
+
+  const limit = await checkLimit(user.organization.id, "events");
+  if (limit) return { values, error: limit };
 
   const event = await prisma.event.create({
     data: {
@@ -154,6 +158,9 @@ export async function duplicateEventAction(
     e.endDate = "O fim não pode ser antes do início.";
   if (Object.keys(e).length || !start || !end)
     return { values, fieldErrors: e };
+
+  const limit = await checkLimit(event.organizationId, "events");
+  if (limit) return { error: limit };
 
   const [categories, rules, stages] = await Promise.all([
     prisma.eventCategory.findMany({

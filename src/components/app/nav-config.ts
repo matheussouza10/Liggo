@@ -3,6 +3,8 @@ import {
   CalendarDaysIcon,
   ChartColumnIcon,
   CircleHelpIcon,
+  CreditCardIcon,
+  LayersIcon,
   LayoutGridIcon,
   ListOrderedIcon,
   MedalIcon,
@@ -79,6 +81,13 @@ export const adminNav: NavConfig = {
         },
         { label: "Formatos", href: "/admin/formats", icon: WorkflowIcon },
         { label: "Posições", href: "/admin/positions", icon: ListOrderedIcon },
+      ],
+    },
+    {
+      label: "Financeiro",
+      items: [
+        { label: "Planos", href: "/admin/plans", icon: LayersIcon },
+        { label: "Pagamentos", href: "/admin/payments", icon: CreditCardIcon },
       ],
     },
   ],

@@ -5,6 +5,9 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { sendMail } from "@/lib/mail";
 import { requestDecisionMail } from "@/lib/mail/templates";
+import { formatMoney } from "@/lib/payments/money";
+import { checkLimit } from "@/lib/payments/plans";
+import { chargeRegistration } from "@/lib/payments/registration-charge";
 import { prisma } from "@/lib/prisma";
 import { requestInclude, reviewRequest } from "./review";
 import { deadlineEnd } from "./state";
@@ -173,6 +176,20 @@ export async function approveRequestAction(requestId: string): Promise<Result> {
   if (request.status !== "PENDING")
     return fail("Este pedido já foi respondido.");
 
+  const regLimit = await checkLimit(organizationId, "registrations", {
+    eventId: request.eventId,
+  });
+  if (regLimit) return fail(regLimit);
+  const newAthletes = Object.values(
+    (await reviewRequest(request)).members,
+  ).filter((m) => m.isNew).length;
+  if (newAthletes > 0) {
+    const athleteLimit = await checkLimit(organizationId, "athletes", {
+      adding: newAthletes,
+    });
+    if (athleteLimit) return fail(athleteLimit);
+  }
+
   const review = await reviewRequest(request);
   if (!review.canApprove)
     return fail(
@@ -275,7 +292,40 @@ export async function approveRequestAction(requestId: string): Promise<Result> {
     throw error;
   }
 
-  await notify(request, { approved: true });
+  // Registration fee: charged in the organization's own account, link goes in the e-mail.
+  const created = await prisma.registrationRequest.findUnique({
+    where: { id: request.id },
+    select: { registrationId: true, category: { select: { feeCents: true } } },
+  });
+  let charge: Awaited<ReturnType<typeof chargeRegistration>> = {
+    status: "skipped",
+    reason: "free",
+  };
+  if (created?.registrationId) {
+    charge = await chargeRegistration(created.registrationId, {
+      name: request.contactName,
+      email: request.contactEmail,
+    });
+  }
+  await notify(request, {
+    approved: true,
+    payUrl: charge.status === "created" ? charge.url : null,
+    feeText:
+      charge.status === "created" && created
+        ? formatMoney(created.category.feeCents)
+        : undefined,
+  });
   refresh(request.eventId);
-  return { ok: true, message: "Pedido aprovado e inscrição criada." };
+  const note =
+    charge.status === "created"
+      ? " Cobrança da taxa enviada por e-mail."
+      : charge.status === "failed"
+        ? ` A cobrança da taxa não pôde ser criada (${charge.error}).`
+        : charge.status === "skipped" &&
+            charge.reason === "no-account" &&
+            created &&
+            created.category.feeCents > 0
+          ? " A categoria tem taxa, mas a conta de recebimento ainda não está aprovada: nada foi cobrado."
+          : "";
+  return { ok: true, message: `Pedido aprovado e inscrição criada.${note}` };
 }

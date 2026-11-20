@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { checkLimit } from "@/lib/payments/plans";
 import { prisma } from "@/lib/prisma";
 import { ineligibleReason } from "./eligibility";
 import { registrationSchema } from "./schemas";
@@ -61,6 +62,13 @@ export async function saveRegistrationAction(
       select: { id: true },
     });
     if (!existing) return { error: "Inscrição não encontrada." };
+  }
+
+  if (!registrationId) {
+    const limit = await checkLimit(organizationId, "registrations", {
+      eventId,
+    });
+    if (limit) return { error: limit };
   }
 
   const category = await prisma.eventCategory.findFirst({
