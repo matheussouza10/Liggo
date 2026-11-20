@@ -34,7 +34,52 @@ export default async function NewEventPage() {
           As regras da competição serão definidas depois de criar o evento.
         </p>
       </div>
-      <EventForm options={options} />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="liquid-card rounded-xl p-6">
+          <EventForm options={options} />
+        </div>
+        <aside
+          aria-label="O que acontece depois"
+          className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+        >
+          <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
+            Depois de criar
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            O evento nasce com uma categoria geral. A Jornada do evento guia
+            cada passo e avisa o que falta.
+          </p>
+          <ol className="flex flex-col gap-3">
+            {[
+              [
+                "Regras e fases",
+                "Pontuação, desempate e formato da competição, já sugeridos pela modalidade.",
+              ],
+              ["Categorias", "Sexo, idade e tamanho do elenco."],
+              [
+                "Inscrições",
+                "Você inscreve ou abre um link para os times pedirem.",
+              ],
+              [
+                "Sorteio e jogos",
+                "Sorteio animado, tabela, resultados ao vivo e página pública.",
+              ],
+            ].map(([title, text], i) => (
+              <li key={title} className="flex gap-3">
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/15 text-sm font-semibold text-primary tabular-nums">
+                  {i + 1}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{title}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {text}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      </div>
     </div>
   );
 }

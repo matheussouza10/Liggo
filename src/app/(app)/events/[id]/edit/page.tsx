@@ -50,25 +50,27 @@ export default async function EditEventPage({
             : "Mude o que precisar. Depois de haver inscrições, a modalidade e o formato de participação ficam travados."}
         </p>
       </div>
-      <EventForm
-        options={options}
-        mode="edit"
-        eventId={id}
-        locked={registrations > 0 || runs > 0}
-        initial={{
-          name: event.name,
-          description: event.description ?? "",
-          startDate: event.startDate.toISOString().slice(0, 10),
-          endDate: event.endDate.toISOString().slice(0, 10),
-          eventTypeId: event.eventTypeId,
-          formatId: event.formatId,
-          sportId: event.sportId,
-          participationType: event.participationType,
-          locationName: event.locationName,
-          city: event.city ?? "",
-          state: event.state ?? "",
-        }}
-      />
+      <div className="liquid-card rounded-xl p-6">
+        <EventForm
+          options={options}
+          mode="edit"
+          eventId={id}
+          locked={registrations > 0 || runs > 0}
+          initial={{
+            name: event.name,
+            description: event.description ?? "",
+            startDate: event.startDate.toISOString().slice(0, 10),
+            endDate: event.endDate.toISOString().slice(0, 10),
+            eventTypeId: event.eventTypeId,
+            formatId: event.formatId,
+            sportId: event.sportId,
+            participationType: event.participationType,
+            locationName: event.locationName,
+            city: event.city ?? "",
+            state: event.state ?? "",
+          }}
+        />
+      </div>
     </div>
   );
 }

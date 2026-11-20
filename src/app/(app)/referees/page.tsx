@@ -1,10 +1,17 @@
-import { GavelIcon, PlusIcon } from "lucide-react";
+import {
+  CalendarClockIcon,
+  GavelIcon,
+  PlusIcon,
+  TrophyIcon,
+  UserCheckIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
   RefereesList,
   type RefereeRow,
 } from "@/components/people/referees-list";
+import { KpiStrip } from "@/components/app/kpi-strip";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -15,6 +22,7 @@ import {
 } from "@/components/ui/empty";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { REFEREE_ROLE_LABELS } from "@/lib/people/format";
+import { refereeKpis } from "@/lib/people/kpis";
 import { listReferees } from "@/lib/people/queries";
 
 export const metadata: Metadata = {
@@ -30,6 +38,9 @@ export default async function RefereesPage() {
   const referees = user.organization
     ? await listReferees(user.organization.id)
     : [];
+  const kpi = user.organization
+    ? await refereeKpis(user.organization.id)
+    : null;
   const rows: RefereeRow[] = referees.map((r) => ({
     id: r.id,
     name: r.name,
@@ -58,6 +69,35 @@ export default async function RefereesPage() {
           Novo árbitro
         </Link>
       </div>
+
+      {kpi ? (
+        <KpiStrip
+          label="Indicadores dos árbitros"
+          items={[
+            { label: "Árbitros ativos", value: kpi.active, icon: GavelIcon },
+            {
+              label: "Jogos escalados",
+              value: kpi.upcoming,
+              hint: "Agendados pela frente",
+              icon: CalendarClockIcon,
+              tone: "good",
+            },
+            {
+              label: "Jogos apitados",
+              value: kpi.refereed,
+              hint: "Com resultado",
+              icon: TrophyIcon,
+            },
+            {
+              label: "Sem escala",
+              value: kpi.free,
+              hint:
+                kpi.free > 0 ? "Disponíveis para escalar" : "Todos escalados",
+              icon: UserCheckIcon,
+            },
+          ]}
+        />
+      ) : null}
       {rows.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>

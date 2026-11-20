@@ -1,7 +1,14 @@
-import { PlusIcon, ShieldIcon } from "lucide-react";
+import {
+  ClipboardCheckIcon,
+  MoonIcon,
+  PlusIcon,
+  ShieldCheckIcon,
+  ShieldIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TeamsList, type TeamRow } from "@/components/people/teams-list";
+import { KpiStrip } from "@/components/app/kpi-strip";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -11,6 +18,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { requireOrganizationUser } from "@/lib/auth/guards";
+import { teamKpis } from "@/lib/people/kpis";
 import { listTeams } from "@/lib/people/queries";
 
 export const metadata: Metadata = {
@@ -24,6 +32,7 @@ export const instant = false;
 export default async function TeamsPage() {
   const user = await requireOrganizationUser();
   const teams = user.organization ? await listTeams(user.organization.id) : [];
+  const kpi = user.organization ? await teamKpis(user.organization.id) : null;
   const rows: TeamRow[] = teams.map((t) => ({
     id: t.id,
     name: t.name,
@@ -53,6 +62,43 @@ export default async function TeamsPage() {
           Novo time
         </Link>
       </div>
+
+      {kpi ? (
+        <KpiStrip
+          label="Indicadores dos times"
+          items={[
+            {
+              label: "Times",
+              value: kpi.total,
+              hint: `${kpi.active} ativos`,
+              icon: ShieldIcon,
+            },
+            {
+              label: "Em eventos",
+              value: kpi.inEvents,
+              hint: `${kpi.share(kpi.inEvents, kpi.total)} do cadastro`,
+              icon: ClipboardCheckIcon,
+              tone: "good",
+            },
+            {
+              label: "Ativos sem inscrição",
+              value: kpi.idle,
+              hint:
+                kpi.idle > 0
+                  ? "Ainda não entraram em evento"
+                  : "Todos já competem",
+              icon: ShieldCheckIcon,
+              tone: kpi.idle > 0 ? "warn" : "default",
+            },
+            {
+              label: "Desativados",
+              value: kpi.inactive,
+              hint: "Fora de novas inscrições",
+              icon: MoonIcon,
+            },
+          ]}
+        />
+      ) : null}
       {rows.length === 0 ? (
         <Empty className="border">
           <EmptyHeader>

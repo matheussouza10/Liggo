@@ -1,10 +1,17 @@
-import { PlusIcon, UsersIcon } from "lucide-react";
+import {
+  BabyIcon,
+  ClipboardCheckIcon,
+  PhoneOffIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
   AthletesList,
   type AthleteRow,
 } from "@/components/people/athletes-list";
+import { KpiStrip } from "@/components/app/kpi-strip";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Empty,
@@ -16,6 +23,7 @@ import {
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { maskCpf } from "@/lib/people/cpf";
 import { GENDER_LABELS, ageOn } from "@/lib/people/format";
+import { athleteKpis } from "@/lib/people/kpis";
 import { listAthletes } from "@/lib/people/queries";
 
 export const metadata: Metadata = {
@@ -31,6 +39,7 @@ export default async function AthletesPage() {
   const organizationId = user.organization?.id ?? "";
   const athletes = user.organization ? await listAthletes(organizationId) : [];
   const today = new Date();
+  const kpi = user.organization ? await athleteKpis(organizationId) : null;
 
   const rows: AthleteRow[] = athletes.map((a) => ({
     id: a.id,
@@ -62,6 +71,43 @@ export default async function AthletesPage() {
           Novo atleta
         </Link>
       </div>
+
+      {kpi ? (
+        <KpiStrip
+          label="Indicadores dos atletas"
+          items={[
+            {
+              label: "Atletas",
+              value: kpi.total,
+              hint: `${kpi.female} ${kpi.female === 1 ? "feminina" : "femininas"} · ${kpi.total - kpi.female} outros`,
+              icon: UsersIcon,
+            },
+            {
+              label: "Inscritos em eventos",
+              value: kpi.inEvents,
+              hint: `${kpi.share(kpi.inEvents, kpi.total)} do cadastro`,
+              icon: ClipboardCheckIcon,
+              tone: "good",
+            },
+            {
+              label: "Menores de 18",
+              value: kpi.minors,
+              hint: "Exigem responsável",
+              icon: BabyIcon,
+            },
+            {
+              label: "Sem contato",
+              value: kpi.noContact,
+              hint:
+                kpi.noContact > 0
+                  ? "Sem e-mail nem telefone"
+                  : "Todos têm contato",
+              icon: PhoneOffIcon,
+              tone: kpi.noContact > 0 ? "warn" : "default",
+            },
+          ]}
+        />
+      ) : null}
 
       {rows.length === 0 ? (
         <Empty className="border">

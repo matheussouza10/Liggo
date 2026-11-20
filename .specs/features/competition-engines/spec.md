@@ -87,3 +87,13 @@ Pendente: relatório financeiro (depende de pagamento), estatísticas (artilhari
 ## Baterias nas provas por desempenho (feitas)
 Uma fase de prova com "Baterias" (2 ou mais, no editor de regras) sorteia os participantes em grupos "Bateria n" (mesma tela de sorteio dos grupos), classifica cada bateria por si e, ao concluir, leva os melhores de cada bateria (`Avançam por bateria`, padrão 1) à fase seguinte, que deve ser outra prova (a final). Os classificados entram ordenados pelo melhor resultado (cabeça de chave 1 = melhor tempo geral). A final usa as mesmas regras de tentativas. Teste: `e2e/heats.mjs`.
 Lacuna que fica: repescagem do judô.
+
+## Indicadores (KPIs) nas telas
+`KpiStrip` (`src/components/app/kpi-strip.tsx`): faixa de 4 indicadores com ícone, valor, dica e tom (normal, bom, alerta). Consultas em `src/lib/people/kpis.ts`.
+- Atletas: total (com divisão por sexo), inscritos em eventos (% do cadastro), menores de 18, sem contato (alerta).
+- Times: total e ativos, em eventos, ativos sem inscrição (alerta), desativados.
+- Árbitros: ativos, jogos escalados pela frente, jogos apitados, sem escala.
+- Eventos: total e encerrados, em andamento, próximos (com o nome e a data do próximo), inscrições (alerta quando há pedidos pendentes).
+- Configurações > Equipe: pessoas ativas, proprietários, membros, convites pendentes (alerta).
+- Novo evento e Editar evento: formulário em cartão largo; no novo, painel "Depois de criar" com os 4 passos.
+Teste: `e2e/kpis.mjs` (valores, tons de alerta, layout lado a lado, sem rolagem lateral no celular).

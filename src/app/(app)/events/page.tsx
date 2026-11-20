@@ -1,4 +1,6 @@
 import {
+  ActivityIcon,
+  CalendarDaysIcon,
   ClipboardListIcon,
   EyeOffIcon,
   GlobeIcon,
@@ -30,7 +32,9 @@ import {
 import { PARTICIPATION_LABELS } from "@/lib/catalog/config";
 import { requireOrganizationUser } from "@/lib/auth/guards";
 import { formatDay } from "@/lib/events/constants";
+import { KpiStrip } from "@/components/app/kpi-strip";
 import { listEvents } from "@/lib/events/queries";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Eventos | Liggo",
@@ -45,6 +49,24 @@ export default async function EventsPage() {
   const events = user.organization
     ? await listEvents(user.organization.id)
     : [];
+  const organizationId = user.organization?.id;
+  const [registrations, pending] = organizationId
+    ? await Promise.all([
+        prisma.registration.count({ where: { event: { organizationId } } }),
+        prisma.registrationRequest.count({
+          where: { event: { organizationId }, status: "PENDING" },
+        }),
+      ])
+    : [0, 0];
+  const now = new Date();
+  const ongoing = events.filter(
+    (e) =>
+      e.startDate.getTime() <= now.getTime() &&
+      e.endDate.getTime() + 24 * 3600 * 1000 > now.getTime(),
+  );
+  const upcoming = events
+    .filter((e) => e.startDate.getTime() > now.getTime())
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,6 +88,45 @@ export default async function EventsPage() {
           Novo evento
         </Link>
       </div>
+
+      {events.length > 0 ? (
+        <KpiStrip
+          label="Indicadores dos eventos"
+          items={[
+            {
+              label: "Eventos",
+              value: events.length,
+              hint: `${events.length - ongoing.length - upcoming.length} já encerrados`,
+              icon: TrophyIcon,
+            },
+            {
+              label: "Em andamento",
+              value: ongoing.length,
+              hint: ongoing[0]?.name ?? "Nenhum agora",
+              icon: ActivityIcon,
+              tone: ongoing.length > 0 ? "good" : "default",
+            },
+            {
+              label: "Próximos",
+              value: upcoming.length,
+              hint: upcoming[0]
+                ? `${upcoming[0].name} em ${formatDay(upcoming[0].startDate)}`
+                : "Nenhum agendado",
+              icon: CalendarDaysIcon,
+            },
+            {
+              label: "Inscrições",
+              value: registrations,
+              hint:
+                pending > 0
+                  ? `${pending} ${pending === 1 ? "pedido aguarda" : "pedidos aguardam"} resposta`
+                  : "Nenhum pedido pendente",
+              icon: ClipboardListIcon,
+              tone: pending > 0 ? "warn" : "default",
+            },
+          ]}
+        />
+      ) : null}
 
       {events.length === 0 ? (
         <Empty className="border">

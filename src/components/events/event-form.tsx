@@ -129,7 +129,7 @@ export function EventForm({
   const invalid = (key: string) => (errors[key] ? true : undefined);
 
   return (
-    <form onSubmit={submit} noValidate className="max-w-3xl">
+    <form onSubmit={submit} noValidate className="w-full">
       <FieldGroup>
         {state.error ? (
           <Alert variant="destructive">

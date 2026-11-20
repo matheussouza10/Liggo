@@ -1,4 +1,11 @@
+import {
+  ClockIcon,
+  CrownIcon,
+  UserRoundCheckIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
+import { KpiStrip } from "@/components/app/kpi-strip";
 import {
   MemberActions,
   InvitationActions,
@@ -53,6 +60,42 @@ export default async function TeamPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <KpiStrip
+        label="Indicadores da equipe"
+        items={[
+          {
+            label: "Pessoas ativas",
+            value: members.filter((m) => !m.disabledAt).length,
+            hint: `${members.length} no total`,
+            icon: UsersIcon,
+          },
+          {
+            label: "Proprietários",
+            value: members.filter((m) => m.role === "OWNER" && !m.disabledAt)
+              .length,
+            hint: "Gerenciam equipe e organização",
+            icon: CrownIcon,
+          },
+          {
+            label: "Membros",
+            value: members.filter((m) => m.role === "MEMBER" && !m.disabledAt)
+              .length,
+            hint: "Operam eventos e jogos",
+            icon: UserRoundCheckIcon,
+          },
+          {
+            label: "Convites pendentes",
+            value: owner ? invitations.length : "–",
+            hint: owner
+              ? invitations.length > 0
+                ? "Aguardando aceite"
+                : "Nenhum em aberto"
+              : "Só proprietários veem",
+            icon: ClockIcon,
+            tone: owner && invitations.length > 0 ? "warn" : "default",
+          },
+        ]}
+      />
       {owner ? (
         <section
           aria-label="Convidar"
