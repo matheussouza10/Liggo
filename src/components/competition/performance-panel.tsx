@@ -78,6 +78,16 @@ export function PerformancePanel({
   const circuit = isCircuit(config);
   const bar = view.bar;
   const relay = isCumulative(config);
+  // With heats there is one table per heat; otherwise one for everybody.
+  const tables: { title: string | null; rows: typeof view.rows }[] =
+    view.heats.length > 0
+      ? [...view.heats, "Sem bateria"]
+          .map((h) => ({
+            title: h,
+            rows: view.rows.filter((r) => r.heat === h),
+          }))
+          .filter((t) => t.rows.length > 0)
+      : [{ title: null, rows: view.rows }];
   return (
     <section aria-label="Resultados" className="flex flex-col gap-4">
       {relay ? (
@@ -115,75 +125,86 @@ export function PerformancePanel({
           por participante.
         </p>
       )}
-      <div className="liquid-card overflow-hidden rounded-xl">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Participante</TableHead>
-              <TableHead>
-                {relay ? "Pernas" : circuit ? "Etapas" : "Tentativas"}
-              </TableHead>
-              <TableHead className="w-32 text-right">
-                {circuit ? "Pontos" : "Resultado"}
-              </TableHead>
-              {editable ? <TableHead className="w-28" /> : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {view.rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="tabular-nums">
-                  {r.status === "OK" && r.position <= 3 ? (
-                    <MedalIcon
-                      className="size-4"
-                      aria-label={`${r.position}º lugar`}
-                    />
-                  ) : null}
-                  {r.status === "OK" ? r.position : "–"}
-                </TableCell>
-                <TableCell className="font-medium">
-                  <span className="flex flex-wrap items-center gap-2">
-                    {r.name}
-                    {r.tied ? <Badge variant="outline">Empate</Badge> : null}
-                    {config.finalists && view.prelimDone && r.finalist ? (
-                      <Badge variant="secondary">Finalista</Badge>
-                    ) : null}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground tabular-nums">
-                  {r.attempts.length
-                    ? r.attempts.map((a) => a.text).join(" · ")
-                    : "–"}
-                </TableCell>
-                <TableCell className="text-right font-semibold tabular-nums">
-                  {r.status === "OK" ? (
-                    r.value
-                  ) : (
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {STATUS_BADGE[r.status]}
-                    </span>
-                  )}
-                </TableCell>
-                {editable ? (
-                  <TableCell className="text-right">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Lançar tentativas de ${r.name}`}
-                      onClick={() => setEditing(r)}
-                    >
-                      <PencilIcon data-icon="inline-start" />
-                      Lançar
-                    </Button>
-                  </TableCell>
-                ) : null}
+      {tables.map((t) => (
+        <div
+          key={t.title ?? "all"}
+          aria-label={t.title ?? undefined}
+          className="liquid-card overflow-hidden rounded-xl"
+        >
+          {t.title ? (
+            <h3 className="px-4 pt-4 font-display text-xl leading-none font-bold tracking-wide uppercase">
+              {t.title}
+            </h3>
+          ) : null}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Participante</TableHead>
+                <TableHead>
+                  {relay ? "Pernas" : circuit ? "Etapas" : "Tentativas"}
+                </TableHead>
+                <TableHead className="w-32 text-right">
+                  {circuit ? "Pontos" : "Resultado"}
+                </TableHead>
+                {editable ? <TableHead className="w-28" /> : null}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {t.rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="tabular-nums">
+                    {r.status === "OK" && r.position <= 3 ? (
+                      <MedalIcon
+                        className="size-4"
+                        aria-label={`${r.position}º lugar`}
+                      />
+                    ) : null}
+                    {r.status === "OK" ? r.position : "–"}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <span className="flex flex-wrap items-center gap-2">
+                      {r.name}
+                      {r.tied ? <Badge variant="outline">Empate</Badge> : null}
+                      {config.finalists && view.prelimDone && r.finalist ? (
+                        <Badge variant="secondary">Finalista</Badge>
+                      ) : null}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {r.attempts.length
+                      ? r.attempts.map((a) => a.text).join(" · ")
+                      : "–"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {r.status === "OK" ? (
+                      r.value
+                    ) : (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        {STATUS_BADGE[r.status]}
+                      </span>
+                    )}
+                  </TableCell>
+                  {editable ? (
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Lançar tentativas de ${r.name}`}
+                        onClick={() => setEditing(r)}
+                      >
+                        <PencilIcon data-icon="inline-start" />
+                        Lançar
+                      </Button>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ))}
       {editing ? (
         <AttemptsDialog
           key={editing.id}

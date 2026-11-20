@@ -35,7 +35,7 @@ export default async function ReportsPage() {
       })
     : [];
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <h1 className="font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
           Relatórios

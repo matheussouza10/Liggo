@@ -45,7 +45,7 @@ export default async function EventReportsPage({
     },
   ];
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${id}`}
@@ -62,7 +62,7 @@ export default async function EventReportsPage({
           planilhas abrem no Excel.
         </p>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2">
+      <ul className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
         {cards.map((c) => (
           <li
             key={c.title}

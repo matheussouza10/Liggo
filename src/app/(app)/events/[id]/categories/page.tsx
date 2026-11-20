@@ -26,7 +26,7 @@ export default async function EventCategoriesPage({
   if (!event) notFound();
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${event.id}`}

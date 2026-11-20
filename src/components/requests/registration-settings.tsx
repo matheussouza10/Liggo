@@ -69,7 +69,7 @@ export function RegistrationSettings({
         Receber pedidos de inscrição pela página pública
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
+      <div className="grid gap-4 grid-cols-1">
         <Field>
           <FieldLabel htmlFor="reg-deadline">Prazo (opcional)</FieldLabel>
           <Input

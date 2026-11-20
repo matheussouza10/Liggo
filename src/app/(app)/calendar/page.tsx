@@ -102,7 +102,7 @@ export default async function CalendarPage() {
   };
 
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <h1 className="font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
           Calendário
@@ -136,73 +136,75 @@ export default async function CalendarPage() {
           Nenhum jogo agendado ainda. Agende os jogos na tela de cada fase.
         </p>
       ) : (
-        [...days.entries()].map(([key, list]) => (
-          <section key={key} aria-label={key} className="flex flex-col gap-2">
-            <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
-              {dayFmt.format(list[0].scheduledAt as Date)}
-            </h2>
-            <ul className="flex flex-col gap-2">
-              {list.map((m) => (
-                <li
-                  key={m.id}
-                  data-conflict={conflicted.has(m.id) ? "true" : undefined}
-                  className={`liquid-card grid gap-2 rounded-xl p-3 sm:grid-cols-[5.5rem_1fr] sm:items-center ${conflicted.has(m.id) ? "ring-1 ring-amber-400/50" : ""}`}
-                >
-                  <span className="font-semibold tabular-nums">
-                    {
-                      formatKickoff(
-                        (m.scheduledAt as Date).toISOString(),
-                      ).split(" às ")[1]
-                    }
-                  </span>
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <p className="truncate text-sm font-medium">
-                      {m.home
-                        ? registrationName(m.home.registration)
-                        : "A definir"}{" "}
-                      x{" "}
-                      {m.away
-                        ? registrationName(m.away.registration)
-                        : "A definir"}
-                      {m.status !== "SCHEDULED" ? (
-                        <span className="ml-2 tabular-nums text-muted-foreground">
-                          ({m.homeScore} x {m.awayScore})
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <Link
-                        href={`/events/${m.stageRun.stage.event.id}/stages`}
-                        className="no-underline hover:text-white"
-                      >
-                        {m.stageRun.stage.event.name}
-                      </Link>
-                      <Badge variant="outline">
-                        {m.stageRun.category.name}
-                      </Badge>
-                      <span>{m.label}</span>
-                      {conflicted.has(m.id) ? (
-                        <Badge variant="outline">Conflito</Badge>
-                      ) : null}
-                      {m.venue ? (
-                        <span className="flex items-center gap-1">
-                          <MapPinIcon className="size-3.5" />
-                          {m.venue}
-                        </span>
-                      ) : null}
-                      {m.referee ? (
-                        <span className="flex items-center gap-1">
-                          <UserIcon className="size-3.5" />
-                          {m.referee.name}
-                        </span>
-                      ) : null}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))
+        <div className="grid items-start gap-6 xl:grid-cols-2">
+          {[...days.entries()].map(([key, list]) => (
+            <section key={key} aria-label={key} className="flex flex-col gap-2">
+              <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
+                {dayFmt.format(list[0].scheduledAt as Date)}
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {list.map((m) => (
+                  <li
+                    key={m.id}
+                    data-conflict={conflicted.has(m.id) ? "true" : undefined}
+                    className={`liquid-card grid gap-2 rounded-xl p-3 sm:grid-cols-[5.5rem_1fr] sm:items-center ${conflicted.has(m.id) ? "ring-1 ring-amber-400/50" : ""}`}
+                  >
+                    <span className="font-semibold tabular-nums">
+                      {
+                        formatKickoff(
+                          (m.scheduledAt as Date).toISOString(),
+                        ).split(" às ")[1]
+                      }
+                    </span>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <p className="truncate text-sm font-medium">
+                        {m.home
+                          ? registrationName(m.home.registration)
+                          : "A definir"}{" "}
+                        x{" "}
+                        {m.away
+                          ? registrationName(m.away.registration)
+                          : "A definir"}
+                        {m.status !== "SCHEDULED" ? (
+                          <span className="ml-2 tabular-nums text-muted-foreground">
+                            ({m.homeScore} x {m.awayScore})
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <Link
+                          href={`/events/${m.stageRun.stage.event.id}/stages`}
+                          className="no-underline hover:text-white"
+                        >
+                          {m.stageRun.stage.event.name}
+                        </Link>
+                        <Badge variant="outline">
+                          {m.stageRun.category.name}
+                        </Badge>
+                        <span>{m.label}</span>
+                        {conflicted.has(m.id) ? (
+                          <Badge variant="outline">Conflito</Badge>
+                        ) : null}
+                        {m.venue ? (
+                          <span className="flex items-center gap-1">
+                            <MapPinIcon className="size-3.5" />
+                            {m.venue}
+                          </span>
+                        ) : null}
+                        {m.referee ? (
+                          <span className="flex items-center gap-1">
+                            <UserIcon className="size-3.5" />
+                            {m.referee.name}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
     </div>
   );

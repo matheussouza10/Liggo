@@ -48,7 +48,7 @@ export default async function RequestDetailPage({
   const team = request.event.participationType === "TEAM";
 
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${id}/requests`}

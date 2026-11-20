@@ -61,6 +61,7 @@ export function StageBoard({
       | "SWISS"
       | "PERFORMANCE";
     swissRounds: number | null;
+    groupCount: number | null;
     advancingPerGroup: number | null;
     seeding: DrawEntryProps["defaultMode"];
   };
@@ -82,7 +83,10 @@ export function StageBoard({
 }) {
   const double = stage.type === "DOUBLE_ELIM";
   const knockout = stage.type === "SINGLE_ELIM" || double;
-  const isGroups = stage.type === "GROUPS";
+  // A performance event split in heats uses the same group screens (Bateria 1, 2...).
+  const isGroups =
+    stage.type === "GROUPS" ||
+    (stage.type === "PERFORMANCE" && (stage.groupCount ?? 0) >= 2);
   const hasMatches = !!view && view.matches.length > 0;
   const perf = stage.type === "PERFORMANCE";
   const perfStarted = perf && !!view && view.status !== "DRAWN";

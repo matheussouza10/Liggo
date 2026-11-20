@@ -41,7 +41,7 @@ export default async function RequestsPage({
   const answered = requests.filter((r) => r.status !== "PENDING");
 
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${event.id}`}
@@ -102,7 +102,7 @@ function Group({
           ({items.length})
         </span>
       </h2>
-      <ul className="flex flex-col gap-2">
+      <ul className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
         {items.map((r) => (
           <li key={r.id}>
             <Link

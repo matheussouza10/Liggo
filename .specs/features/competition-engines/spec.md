@@ -83,3 +83,7 @@ Agendamento automático por quadra já existia (`autoScheduleAction`).
 - Privacidade: os relatórios não trazem CPF nem contato de atleta (só a comissão técnica tem contato). A súmula traz elencos, lances (`describeEvent`), sets e jogos da série, e linhas de assinatura.
 - Atalhos: botão "Relatórios" na página do evento e "Súmula para imprimir" na tela do jogo.
 Pendente: relatório financeiro (depende de pagamento), estatísticas (artilharia) em PDF, logotipo da organização no cabeçalho.
+
+## Baterias nas provas por desempenho (feitas)
+Uma fase de prova com "Baterias" (2 ou mais, no editor de regras) sorteia os participantes em grupos "Bateria n" (mesma tela de sorteio dos grupos), classifica cada bateria por si e, ao concluir, leva os melhores de cada bateria (`Avançam por bateria`, padrão 1) à fase seguinte, que deve ser outra prova (a final). Os classificados entram ordenados pelo melhor resultado (cabeça de chave 1 = melhor tempo geral). A final usa as mesmas regras de tentativas. Teste: `e2e/heats.mjs`.
+Lacuna que fica: repescagem do judô.

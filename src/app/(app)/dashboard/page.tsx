@@ -111,7 +111,7 @@ export default async function DashboardPage() {
       data.counts.athletes === 0);
 
   return (
-    <div className="flex max-w-6xl flex-col gap-8">
+    <div className="flex w-full flex-col gap-8">
       <AutoRefresh seconds={20} />
       <div>
         <h1 className="font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">

@@ -137,6 +137,7 @@ export default async function StagePage({
               | "SWISS"
               | "PERFORMANCE",
             swissRounds: stage.swissRounds,
+            groupCount: stage.groupCount,
             advancingPerGroup: stage.advancingPerGroup,
             seeding: stage.seeding,
           }}

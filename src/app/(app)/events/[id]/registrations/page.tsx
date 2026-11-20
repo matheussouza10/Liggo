@@ -38,37 +38,39 @@ export default async function RegistrationsPage({
   const registrations = await listRegistrations(event.id);
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
-      <div>
-        <Link
-          href={`/events/${event.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground no-underline hover:text-white"
-        >
-          <ArrowLeftIcon className="size-4" />
-          {event.name}
-        </Link>
-        <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
-          Inscrições
-        </h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">
-          Quem participa deste evento. O elenco é escolhido aqui, para cada
-          competição.
-        </p>
-      </div>
-      <div className="flex flex-wrap justify-end gap-3">
-        <Link
-          href={`/events/${event.id}/categories`}
-          className={cn(buttonVariants({ variant: "outline" }), "h-10")}
-        >
-          Categorias
-        </Link>
-        <Link
-          href={`/events/${event.id}/registrations/new`}
-          className={cn(buttonVariants(), "h-10")}
-        >
-          <PlusIcon data-icon="inline-start" />
-          Nova inscrição
-        </Link>
+    <div className="flex w-full flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0">
+          <Link
+            href={`/events/${event.id}`}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground no-underline hover:text-white"
+          >
+            <ArrowLeftIcon className="size-4" />
+            {event.name}
+          </Link>
+          <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
+            Inscrições
+          </h1>
+          <p className="mt-3 max-w-2xl text-muted-foreground">
+            Quem participa deste evento. O elenco é escolhido aqui, para cada
+            competição.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/events/${event.id}/categories`}
+            className={cn(buttonVariants({ variant: "outline" }), "h-10")}
+          >
+            Categorias
+          </Link>
+          <Link
+            href={`/events/${event.id}/registrations/new`}
+            className={cn(buttonVariants(), "h-10")}
+          >
+            <PlusIcon data-icon="inline-start" />
+            Nova inscrição
+          </Link>
+        </div>
       </div>
       {registrations.length === 0 ? (
         <p className="liquid-card rounded-xl p-10 text-center text-muted-foreground">

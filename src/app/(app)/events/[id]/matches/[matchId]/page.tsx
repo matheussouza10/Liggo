@@ -43,7 +43,7 @@ export default async function MatchPage({
   });
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${id}/stages`}

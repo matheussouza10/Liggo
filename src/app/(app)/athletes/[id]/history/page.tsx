@@ -28,7 +28,7 @@ export default async function AthleteHistoryPage({
   const history = await getAthleteHistory(user.organization.id, id);
 
   return (
-    <div className="flex max-w-6xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href="/athletes"

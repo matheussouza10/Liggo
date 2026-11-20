@@ -188,6 +188,29 @@ export function StagesSection({ rules, patch, errors }: SectionProps) {
                 </div>
               ) : null}
 
+              {stage.type === "PERFORMANCE" ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField
+                    label="Baterias (opcional)"
+                    value={stage.groupCount}
+                    nullable
+                    min={2}
+                    max={16}
+                    onChange={(v) => update(index, { groupCount: v })}
+                    error={err(index, "groupCount")}
+                  />
+                  <NumberField
+                    label="Avançam por bateria"
+                    value={stage.advancingPerGroup}
+                    nullable
+                    min={1}
+                    max={12}
+                    onChange={(v) => update(index, { advancingPerGroup: v })}
+                    error={err(index, "advancingPerGroup")}
+                  />
+                </div>
+              ) : null}
+
               {stage.type === "ROUND_ROBIN" || stage.type === "GROUPS" ? (
                 <Field className="max-w-xs">
                   <FieldLabel htmlFor={`stage-legs-${index}`}>

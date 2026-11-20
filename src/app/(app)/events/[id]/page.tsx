@@ -96,21 +96,37 @@ export default async function EventPage({
   ];
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
-      <div>
-        <Link
-          href="/events"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground no-underline hover:text-white"
-        >
-          <ArrowLeftIcon className="size-4" />
-          Eventos
-        </Link>
-        <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
-          {event.name}
-        </h1>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Badge variant="secondary">{event.eventType.name}</Badge>
-          <Badge variant="secondary">{event.sport.name}</Badge>
+    <div className="flex w-full flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0">
+          <Link
+            href="/events"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground no-underline hover:text-white"
+          >
+            <ArrowLeftIcon className="size-4" />
+            Eventos
+          </Link>
+          <h1 className="mt-3 font-display text-4xl leading-none font-extrabold uppercase sm:text-5xl">
+            {event.name}
+          </h1>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge variant="secondary">{event.eventType.name}</Badge>
+            <Badge variant="secondary">{event.sport.name}</Badge>
+          </div>
+        </div>
+        <div className="print:hidden">
+          <EventActions
+            eventId={event.id}
+            eventName={event.name}
+            startDate={event.startDate.toISOString().slice(0, 10)}
+            endDate={event.endDate.toISOString().slice(0, 10)}
+            isOwner={user.role === "OWNER"}
+            impact={{
+              registrations: registrationCount,
+              matches: matchCount,
+              played: playedCount,
+            }}
+          />
         </div>
       </div>
 
@@ -128,241 +144,272 @@ export default async function EventPage({
         </Alert>
       ) : null}
 
-      {journey ? <EventJourney eventId={event.id} journey={journey} /> : null}
-
-      <EventActions
-        eventId={event.id}
-        eventName={event.name}
-        startDate={event.startDate.toISOString().slice(0, 10)}
-        endDate={event.endDate.toISOString().slice(0, 10)}
-        isOwner={user.role === "OWNER"}
-        impact={{
-          registrations: registrationCount,
-          matches: matchCount,
-          played: playedCount,
-        }}
-      />
-
-      {event.description ? (
-        <p className="whitespace-pre-line text-muted-foreground">
-          {event.description}
-        </p>
-      ) : null}
-
-      <dl className="grid gap-x-8 gap-y-4 border-t pt-6 sm:grid-cols-[10rem_1fr]">
-        {rows.map(([label, value]) => (
-          <div key={label} className="contents">
-            <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className="font-medium">{value}</dd>
+      <dl
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Resumo do evento"
+      >
+        {[
+          [
+            "Período",
+            `${formatDay(event.startDate)} a ${formatDay(event.endDate)}`,
+          ],
+          [
+            "Inscrições",
+            `${registrationCount} em ${categoryCount} ${categoryCount === 1 ? "categoria" : "categorias"}`,
+          ],
+          [
+            "Jogos",
+            matchCount === 0
+              ? "Nenhum ainda"
+              : `${playedCount} de ${matchCount} disputados`,
+          ],
+          ["Local", place || "Não informado"],
+        ].map(([label, value]) => (
+          <div key={label} className="liquid-card rounded-xl px-4 py-3">
+            <dt className="text-xs tracking-wider text-muted-foreground uppercase">
+              {label}
+            </dt>
+            <dd className="mt-1 truncate font-semibold">{value}</dd>
           </div>
         ))}
       </dl>
 
-      <section
-        className="flex flex-col gap-4 border-t pt-6"
-        aria-labelledby="rules-heading"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2
-            id="rules-heading"
-            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)] xl:items-start">
+        <div className="flex min-w-0 flex-col gap-6">
+          {journey ? (
+            <EventJourney eventId={event.id} journey={journey} />
+          ) : null}
+          <section
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+            aria-labelledby="rules-heading"
           >
-            Regras
-          </h2>
-          <Link
-            href={`/events/${event.id}/rules`}
-            className={buttonVariants({
-              variant: rules ? "outline" : "default",
-            })}
-          >
-            <SlidersHorizontalIcon data-icon="inline-start" />
-            {rules ? "Editar regras" : "Configurar regras"}
-          </Link>
-        </div>
-        {summary ? (
-          <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-[10rem_1fr]">
-            {(
-              [
-                ["Pontuação", summary.scoring],
-                [
-                  "Desempate",
-                  summary.tiebreakers.length
-                    ? summary.tiebreakers
-                        .map((t, i) => `${i + 1}. ${t}`)
-                        .join("  ")
-                    : "Sem critérios",
-                ],
-                ["W.O.", summary.walkover],
-                ["Confronto", summary.match],
-              ] as [string, string][]
-            ).map(([label, value]) => (
-              <div key={label} className="contents">
-                <dt className="text-sm text-muted-foreground">{label}</dt>
-                <dd className="font-medium">{value}</dd>
-              </div>
-            ))}
-            <div className="contents">
-              <dt className="text-sm text-muted-foreground">Fases</dt>
-              <dd className="flex flex-wrap gap-2">
-                {summary.stages.map((stage, index) => (
-                  <Badge key={index} variant="secondary">
-                    {index + 1}. {stage.name || stage.type}
-                  </Badge>
-                ))}
-              </dd>
-            </div>
-          </dl>
-        ) : (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <SlidersHorizontalIcon />
-              </EmptyMedia>
-              <EmptyTitle>As regras ainda não foram definidas</EmptyTitle>
-              <EmptyDescription>
-                Escolha pontuação, desempate, W.O., confrontos e fases a partir
-                de uma predefinição da modalidade.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="rules-heading"
+                className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+              >
+                Regras
+              </h2>
               <Link
                 href={`/events/${event.id}/rules`}
-                className={buttonVariants()}
+                className={buttonVariants({
+                  variant: rules ? "outline" : "default",
+                })}
               >
-                Configurar regras
+                <SlidersHorizontalIcon data-icon="inline-start" />
+                {rules ? "Editar regras" : "Configurar regras"}
               </Link>
-            </EmptyContent>
-          </Empty>
-        )}
-      </section>
-
-      <section
-        className="flex flex-col gap-4 border-t pt-6"
-        aria-labelledby="registrations-heading"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2
-            id="registrations-heading"
-            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+            </div>
+            {summary ? (
+              <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-[10rem_1fr]">
+                {(
+                  [
+                    ["Pontuação", summary.scoring],
+                    [
+                      "Desempate",
+                      summary.tiebreakers.length
+                        ? summary.tiebreakers
+                            .map((t, i) => `${i + 1}. ${t}`)
+                            .join("  ")
+                        : "Sem critérios",
+                    ],
+                    ["W.O.", summary.walkover],
+                    ["Confronto", summary.match],
+                  ] as [string, string][]
+                ).map(([label, value]) => (
+                  <div key={label} className="contents">
+                    <dt className="text-sm text-muted-foreground">{label}</dt>
+                    <dd className="font-medium">{value}</dd>
+                  </div>
+                ))}
+                <div className="contents">
+                  <dt className="text-sm text-muted-foreground">Fases</dt>
+                  <dd className="flex flex-wrap gap-2">
+                    {summary.stages.map((stage, index) => (
+                      <Badge key={index} variant="secondary">
+                        {index + 1}. {stage.name || stage.type}
+                      </Badge>
+                    ))}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <Empty className="border">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <SlidersHorizontalIcon />
+                  </EmptyMedia>
+                  <EmptyTitle>As regras ainda não foram definidas</EmptyTitle>
+                  <EmptyDescription>
+                    Escolha pontuação, desempate, W.O., confrontos e fases a
+                    partir de uma predefinição da modalidade.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Link
+                    href={`/events/${event.id}/rules`}
+                    className={buttonVariants()}
+                  >
+                    Configurar regras
+                  </Link>
+                </EmptyContent>
+              </Empty>
+            )}
+          </section>
+          <section
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+            aria-labelledby="registrations-heading"
           >
-            Inscrições
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/events/${event.id}/categories`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Categorias
-            </Link>
-            <Link
-              href={`/events/${event.id}/registrations`}
-              className={buttonVariants()}
-            >
-              <ClipboardListIcon data-icon="inline-start" />
-              Ver inscrições
-            </Link>
-          </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="registrations-heading"
+                className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+              >
+                Inscrições
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/events/${event.id}/categories`}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  Categorias
+                </Link>
+                <Link
+                  href={`/events/${event.id}/registrations`}
+                  className={buttonVariants()}
+                >
+                  <ClipboardListIcon data-icon="inline-start" />
+                  Ver inscrições
+                </Link>
+              </div>
+            </div>
+            <p className="text-muted-foreground">
+              {registrationCount === 0
+                ? "Nenhuma inscrição ainda."
+                : `${registrationCount} ${registrationCount === 1 ? "inscrição" : "inscrições"}`}
+              {" em "}
+              {categoryCount} {categoryCount === 1 ? "categoria" : "categorias"}
+              .
+            </p>
+          </section>
+          <section
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+            aria-labelledby="stages-heading"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="stages-heading"
+                className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+              >
+                Fases e jogos
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href={`/events/${event.id}/stats`}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <BarChart3Icon data-icon="inline-start" />
+                  Estatísticas
+                </Link>
+                <Link
+                  href={`/events/${event.id}/stages`}
+                  className={buttonVariants()}
+                >
+                  <SwordsIcon data-icon="inline-start" />
+                  Abrir fases
+                </Link>
+              </div>
+            </div>
+            <p className="text-muted-foreground">
+              Sorteio, tabela de jogos, resultados, classificação e calendário.
+            </p>
+          </section>
         </div>
-        <p className="text-muted-foreground">
-          {registrationCount === 0
-            ? "Nenhuma inscrição ainda."
-            : `${registrationCount} ${registrationCount === 1 ? "inscrição" : "inscrições"}`}
-          {" em "}
-          {categoryCount} {categoryCount === 1 ? "categoria" : "categorias"}.
-        </p>
-      </section>
-
-      <section
-        className="flex flex-col gap-4 border-t pt-6"
-        aria-labelledby="requests-heading"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2
-            id="requests-heading"
-            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+        <aside className="flex min-w-0 flex-col gap-6 xl:sticky xl:top-24">
+          <section
+            aria-label="Detalhes"
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
           >
-            Inscrições públicas
-          </h2>
-          <Link
-            href={`/events/${event.id}/requests`}
-            className={buttonVariants({
-              variant: pendingRequests > 0 ? "default" : "outline",
-            })}
-          >
-            <InboxIcon data-icon="inline-start" />
-            Pedidos
-            {pendingRequests > 0 ? (
-              <Badge variant="secondary" className="ml-1">
-                {pendingRequests}{" "}
-                {pendingRequests === 1 ? "pendente" : "pendentes"}
-              </Badge>
+            <h2 className="font-display text-2xl leading-none font-bold tracking-wide uppercase">
+              Detalhes
+            </h2>
+            {event.description ? (
+              <p className="whitespace-pre-line text-muted-foreground">
+                {event.description}
+              </p>
             ) : null}
-          </Link>
-        </div>
-        <p className="text-muted-foreground">
-          Times e atletas pedem para participar por um link, sem conta. Nada
-          entra no evento até você aprovar.
-        </p>
-        <RegistrationSettings
-          eventId={event.id}
-          link={`${appUrl()}/register/${event.id}`}
-          initial={{
-            open: event.registrationOpen,
-            deadline: event.registrationDeadline
-              ? new Date(event.registrationDeadline.getTime() - 3 * 3600 * 1000)
-                  .toISOString()
-                  .slice(0, 10)
-              : "",
-            notes: event.registrationNotes ?? "",
-          }}
-        />
-      </section>
-
-      <section
-        className="flex flex-col gap-4 border-t pt-6"
-        aria-labelledby="stages-heading"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2
-            id="stages-heading"
-            className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+            <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[7.5rem_1fr] xl:grid-cols-[7.5rem_1fr]">
+              {rows
+                .filter(([k]) => k !== "Período" && k !== "Local")
+                .map(([label, value]) => (
+                  <div key={label} className="contents">
+                    <dt className="text-sm text-muted-foreground">{label}</dt>
+                    <dd className="font-medium">{value}</dd>
+                  </div>
+                ))}
+            </dl>
+          </section>
+          <section
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+            aria-labelledby="requests-heading"
           >
-            Fases e jogos
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={`/events/${event.id}/stats`}
-              className={buttonVariants({ variant: "outline" })}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="requests-heading"
+                className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
+              >
+                Inscrições públicas
+              </h2>
+              <Link
+                href={`/events/${event.id}/requests`}
+                className={buttonVariants({
+                  variant: pendingRequests > 0 ? "default" : "outline",
+                })}
+              >
+                <InboxIcon data-icon="inline-start" />
+                Pedidos
+                {pendingRequests > 0 ? (
+                  <Badge variant="secondary" className="ml-1">
+                    {pendingRequests}{" "}
+                    {pendingRequests === 1 ? "pendente" : "pendentes"}
+                  </Badge>
+                ) : null}
+              </Link>
+            </div>
+            <p className="text-muted-foreground">
+              Times e atletas pedem para participar por um link, sem conta. Nada
+              entra no evento até você aprovar.
+            </p>
+            <RegistrationSettings
+              eventId={event.id}
+              link={`${appUrl()}/register/${event.id}`}
+              initial={{
+                open: event.registrationOpen,
+                deadline: event.registrationDeadline
+                  ? new Date(
+                      event.registrationDeadline.getTime() - 3 * 3600 * 1000,
+                    )
+                      .toISOString()
+                      .slice(0, 10)
+                  : "",
+                notes: event.registrationNotes ?? "",
+              }}
+            />
+          </section>
+          <section
+            className="liquid-card flex flex-col gap-4 rounded-xl p-5"
+            aria-labelledby="public-heading"
+          >
+            <h2
+              id="public-heading"
+              className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
             >
-              <BarChart3Icon data-icon="inline-start" />
-              Estatísticas
-            </Link>
-            <Link
-              href={`/events/${event.id}/stages`}
-              className={buttonVariants()}
-            >
-              <SwordsIcon data-icon="inline-start" />
-              Abrir fases
-            </Link>
-          </div>
-        </div>
-        <p className="text-muted-foreground">
-          Sorteio, tabela de jogos, resultados, classificação e calendário.
-        </p>
-      </section>
-
-      <section
-        className="flex flex-col gap-4 border-t pt-6"
-        aria-labelledby="public-heading"
-      >
-        <h2
-          id="public-heading"
-          className="font-display text-2xl leading-none font-bold tracking-wide uppercase"
-        >
-          Página pública
-        </h2>
-        <PublicToggle eventId={event.id} initial={event.publicVisible} />
-      </section>
+              Página pública
+            </h2>
+            <PublicToggle eventId={event.id} initial={event.publicVisible} />
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

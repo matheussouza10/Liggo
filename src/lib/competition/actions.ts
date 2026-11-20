@@ -10,6 +10,7 @@ import {
   isBarMode,
   maxAttemptsFor,
   perfConfigOf,
+  rankPerformance,
   tiebreakerKeys,
 } from "./performance";
 import { maxSwissRounds, pairSwiss } from "./swiss";
@@ -135,12 +136,21 @@ export async function drawStageAction(
     where: { eventId, categoryId },
     select: { id: true },
   });
-  const needed = stage.type === "GROUPS" ? (stage.groupCount ?? 2) * 2 : 2;
+  // A performance event split in heats needs at least one participant per heat.
+  const heats = stage.type === "PERFORMANCE" && (stage.groupCount ?? 0) >= 2;
+  const needed =
+    stage.type === "GROUPS"
+      ? (stage.groupCount ?? 2) * 2
+      : heats
+        ? (stage.groupCount ?? 2)
+        : 2;
   if (registrations.length < needed) {
     return fail(
       stage.type === "GROUPS"
         ? `Esta fase precisa de pelo menos ${needed} inscrições (2 por grupo).`
-        : "É preciso ter pelo menos 2 inscrições.",
+        : heats
+          ? `Para ${needed} baterias é preciso ter pelo menos ${needed} inscrições.`
+          : "É preciso ter pelo menos 2 inscrições.",
     );
   }
 
@@ -184,12 +194,12 @@ export async function drawStageAction(
   }[] = [];
   const seedOf = new Map(entries.map((e) => [e.id, e.seed]));
 
-  if (stage.type === "GROUPS") {
+  if (stage.type === "GROUPS" || heats) {
     const count = stage.groupCount ?? 2;
     groupRows = Array.from({ length: count }, (_, i) => ({
       id: randomUUID(),
       stageRunId: runId,
-      name: `Grupo ${String.fromCharCode(65 + i)}`,
+      name: heats ? `Bateria ${i + 1}` : `Grupo ${String.fromCharCode(65 + i)}`,
       order: i + 1,
     }));
     const distribution = drawGroups(mode as DrawMode, entries, count, rnd);
@@ -1178,13 +1188,68 @@ export async function completeStageAction(
           `Faltam tentativas de ${entryName(e)} (${has} de ${need}).`,
         );
     }
-    if (event.stages.some((s) => s.order === stage.order + 1))
+    const nextStage = event.stages.find((s) => s.order === stage.order + 1);
+    if (!nextStage) {
+      await prisma.stageRun.update({
+        where: { id: run.id },
+        data: { status: "DONE" },
+      });
+      return refresh(eventId);
+    }
+    if (nextStage.type !== "PERFORMANCE")
       return fail(
-        "Por enquanto a prova por desempenho deve ser a última fase do evento.",
+        "Depois de uma prova só pode haver outra prova (por exemplo, a final).",
       );
-    await prisma.stageRun.update({
-      where: { id: run.id },
-      data: { status: "DONE" },
+
+    // Heats: the best of each heat go on, ordered by their results.
+    const hasHeats = full.groups.length >= 2;
+    const keep =
+      stage.advancingPerGroup ?? (hasHeats ? 1 : full.entries.length);
+    const ranked = rankPerformance(cfg, parts, opts);
+    const byId = new Map(full.entries.map((e) => [e.id, e]));
+    const qualified = new Set<string>();
+    if (hasHeats) {
+      for (const g of full.groups) {
+        const inHeat = parts.filter((p) => byId.get(p.id)?.groupId === g.id);
+        rankPerformance(cfg, inHeat, opts)
+          .filter((r) => r.status === "OK" && r.position <= keep)
+          .forEach((r) => qualified.add(r.id));
+      }
+    } else {
+      ranked
+        .filter((r) => r.status === "OK" && r.position <= keep)
+        .forEach((r) => qualified.add(r.id));
+    }
+    // Best result first: that is the seeding of the next stage.
+    const flat = ranked
+      .filter((r) => qualified.has(r.id))
+      .map((r) => byId.get(r.id)!.registrationId);
+    if (flat.length < 1)
+      return fail("Ninguém tem resultado válido para ir à próxima fase.");
+
+    const nextRunId = randomUUID();
+    await prisma.$transaction(async (tx) => {
+      await tx.stageRun.update({
+        where: { id: run.id },
+        data: { status: "DONE" },
+      });
+      await tx.stageRun.create({
+        data: {
+          id: nextRunId,
+          stageId: nextStage.id,
+          categoryId: run.categoryId,
+          drawSeed: run.drawSeed,
+          drawMode: "RANKING",
+        },
+      });
+      await tx.stageEntry.createMany({
+        data: flat.map((registrationId, i) => ({
+          stageRunId: nextRunId,
+          registrationId,
+          seed: i + 1,
+          position: i,
+        })),
+      });
     });
     return refresh(eventId);
   }

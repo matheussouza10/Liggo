@@ -31,12 +31,16 @@ export type PerfRowView = {
   /** Attempts this participant may have right now. */
   maxAttempts: number;
   finalist: boolean;
+  /** Heat (bateria) of the participant, when the event is split in heats. */
+  heat: string | null;
 };
 export type PerfView = {
   config: PerfConfig;
   /** High jump or pole vault: jumps with a height and a clear or a miss. */
   bar: boolean;
   rows: PerfRowView[];
+  /** Heats in order (empty when there are none). */
+  heats: string[];
   /** Everybody took the attempts all participants take. */
   prelimDone: boolean;
 };
@@ -59,13 +63,39 @@ export function buildPerfView(
     tiebreakers: tiebreakerKeys(rules),
     lotsSeed: run.drawSeed ?? 1,
   };
-  const ranks = rankPerformance(config, parts, opts);
+  // With heats each heat is ranked on its own (position inside the heat).
+  const heatNames = run.groups.length >= 2 ? run.groups.map((g) => g.name) : [];
+  const buckets: { heat: string | null; ids: Set<string> }[] =
+    heatNames.length > 0
+      ? [
+          ...run.groups.map((g) => ({
+            heat: g.name as string | null,
+            ids: new Set(
+              run.entries.filter((e) => e.groupId === g.id).map((e) => e.id),
+            ),
+          })),
+          {
+            heat: "Sem bateria" as string | null,
+            ids: new Set(
+              run.entries.filter((e) => !e.groupId).map((e) => e.id),
+            ),
+          },
+        ].filter((b) => b.ids.size > 0)
+      : [{ heat: null, ids: new Set(parts.map((p) => p.id)) }];
+  const ranks = buckets.flatMap((b) =>
+    rankPerformance(
+      config,
+      parts.filter((p) => b.ids.has(p.id)),
+      opts,
+    ).map((r) => ({ ...r, heat: b.heat })),
+  );
   const finalists = finalistIds(config, parts, opts);
   const bar = isBarMode(config, tiebreakerKeys(rules));
   const byId = new Map(run.entries.map((e) => [e.id, e]));
   return {
     config,
     bar,
+    heats: heatNames,
     prelimDone: preliminaryDone(config, parts),
     rows: ranks.map((r) => {
       const e = byId.get(r.id)!;
@@ -94,6 +124,7 @@ export function buildPerfView(
         })),
         maxAttempts: maxAttemptsFor(config, parts, r.id, opts),
         finalist: finalists.has(r.id),
+        heat: r.heat,
       };
     }),
   };

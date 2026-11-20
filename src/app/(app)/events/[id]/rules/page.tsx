@@ -35,7 +35,7 @@ export default async function EventRulesPage({
   const initial = stored ?? structuredClone(PRESET_BY_KEY[suggestedKey].rules);
 
   return (
-    <div className="flex max-w-4xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <div>
         <Link
           href={`/events/${event.id}`}
