@@ -13,10 +13,11 @@ export async function ensureDefaultPlan() {
     update: { isDefault: true },
     create: {
       name: "Starter",
-      description: "Para começar: eventos e atletas limitados.",
+      description:
+        "Plano gratuito com limites de eventos e inscrições por evento; atletas sem limite.",
       priceCents: 0,
       maxEvents: 8,
-      maxAthletes: 200,
+      maxAthletes: null,
       maxRegistrationsPerEvent: 64,
       isDefault: true,
       sortOrder: 0,

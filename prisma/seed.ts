@@ -3,6 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { seedCatalogs, seedPositions } from "./seed-catalogs";
+import { seedTestData } from "./seed-test-data";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -40,6 +41,11 @@ async function main() {
   await seedPositions(prisma);
   console.log("Catalogs ready (sports, event types, competition formats).");
   await seedAdmin();
+  if (process.env.SEED_TEST_DATA === "true") {
+    await seedTestData(prisma);
+  } else {
+    console.log("Test fixtures skipped; set SEED_TEST_DATA=true to enable.");
+  }
 }
 
 main()
